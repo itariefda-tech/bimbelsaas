@@ -6,7 +6,7 @@ from app.api import register_api
 from app.common.errors import register_error_handlers
 from app.common.request_context import register_request_context
 from app.config import Config, get_config
-from app.extensions import db, migrate
+from app.extensions import db, migrate, socketio
 
 
 def create_app(config_object: type[Config] | None = None) -> Flask:
@@ -18,11 +18,15 @@ def create_app(config_object: type[Config] | None = None) -> Flask:
 
     db.init_app(app)
     migrate.init_app(app, db)
+    socketio.init_app(app)
 
     from app import models  # noqa: F401
 
     register_request_context(app)
     register_error_handlers(app)
     register_api(app)
+    from app.realtime import register_realtime_handlers
+
+    register_realtime_handlers()
 
     return app

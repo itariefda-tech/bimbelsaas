@@ -144,6 +144,44 @@ class ParentExperienceService:
             in self.links.attendance_history(academy_id, student_id, limit)
         ]
 
+    def academic_progress(
+        self,
+        principal: Principal,
+        academy_id: UUID,
+        student_id: UUID,
+    ) -> dict[str, object]:
+        self._linked_student(principal, academy_id, student_id)
+        snapshot = self.links.progress_snapshot(academy_id, student_id)
+        total = sum(snapshot.get(status, 0) for status in (
+            "present", "late", "absent", "excused", "online"
+        ))
+        attended = sum(snapshot.get(status, 0) for status in (
+            "present", "late", "online"
+        ))
+        consistency = round(attended / total * 100, 1) if total else None
+        if consistency is None:
+            momentum = "not_enough_data"
+        elif consistency >= 90:
+            momentum = "excellent"
+        elif consistency >= 75:
+            momentum = "steady"
+        else:
+            momentum = "needs_attention"
+        return {
+            "student_id": str(student_id),
+            "attendance_consistency": {
+                "percentage": consistency,
+                "finalized_sessions": total,
+                "attended_sessions": attended,
+            },
+            "learning_activity": {
+                "published_lesson_summaries": snapshot["published_summaries"],
+                "homework_assigned": snapshot["homework_assigned"],
+            },
+            "momentum": momentum,
+            "source_policy": "finalized_attendance_and_published_summaries_only",
+        }
+
     def published_summaries(
         self,
         principal: Principal,
@@ -303,6 +341,9 @@ class ParentExperienceService:
             "attendance": f"{base}/attendance",
             "lesson_summaries": f"{base}/lesson-summaries",
             "schedule": f"{base}/schedule",
+            "progress": f"{base}/progress",
+            "invoices": "/api/v1/parent/invoices",
+            "notifications": "/api/v1/notifications",
         }
 
     @staticmethod

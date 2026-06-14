@@ -26,6 +26,7 @@ from app.repositories.class_repository import ClassStudentRepository
 from app.repositories.schedule_repository import ClassSessionRepository
 from app.services.audit_log_service import AuditEvent, AuditLogService
 from app.services.authorization_service import AuthorizationService
+from app.services.parent_notification_service import ParentNotificationService
 
 
 class AttendanceService:
@@ -193,6 +194,16 @@ class AttendanceService:
                     "attendance_count": len(recorded),
                 },
             )
+        )
+        ParentNotificationService().emit_for_class(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            class_id=session.schedule.class_id,
+            notification_type="attendance.finalized",
+            priority="medium",
+            title="Attendance is available",
+            payload={"session_id": str(session.id)},
+            dedup_key=f"attendance.finalized:{session.id}",
         )
         db.session.commit()
         return self.serialize_sheet(session, recorded)

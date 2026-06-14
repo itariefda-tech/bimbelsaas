@@ -686,9 +686,9 @@ Teacher access remains assigned-Class scoped. Preview/download endpoints expose
 validated storage metadata; binary serving and signed URLs remain delegated to
 the future storage provider.
 
-The notification boundary currently stores deduplicated in-app events and read
-state. Queueing, push/email delivery, retries, and realtime synchronization
-remain Phase 8 responsibilities.
+The notification system stores deduplicated in-app events and read state,
+queues durable delivery records, and synchronizes scoped Socket.IO events.
+External push/email providers remain pluggable delivery channels.
 
 Parent experience endpoints:
 
@@ -741,8 +741,10 @@ Current phase:
 * Phase 5 attendance lifecycle and edit approval foundation completed
 * Phase 5 teacher dashboard and lesson summary lifecycle completed
 * Phase 5 material access and notification boundary completed
-* Phase 6 linked-child visibility, attendance, summaries, and schedule completed
-* next: Phase 6 progress, invoice visibility, and parent notifications
+* Phase 6 premium parent experience completed
+* Phase 7 financial, subscription, addon, and feature-gating foundation completed
+* Phase 8 Socket.IO, realtime outbox, notification queue, and sync completed
+* next: Phase 9 UI/UX refinement
 
 ---
 

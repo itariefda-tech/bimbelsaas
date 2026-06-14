@@ -2,12 +2,12 @@
 
 ## Current Phase
 
-Phase 6 - Parent Experience
+Phase 9 - UI/UX Refinement
 
 ## Current Task
 
-Continue Phase 6 with academic progress, invoice visibility, parent
-notifications, and a final mobile-first parent response review.
+Begin Phase 9 premium UI/UX refinement after completing the Phase 6 parent,
+Phase 7 financial/subscription, and Phase 8 realtime/notification foundations.
 
 ## Completed In This Session
 
@@ -88,6 +88,16 @@ notifications, and a final mobile-first parent response review.
 - [x] Add bounded mobile-friendly material and notification responses.
 - [x] Add deduplicated in-app notification boundary and read state.
 - [x] Add migration `0009` and material/version/distribution tests.
+- [x] Complete parent academic progress, invoice, notification, and mobile API
+  visibility.
+- [x] Add academic invoices, payment tracking/proof metadata, and confirmation.
+- [x] Add SaaS plans, subscription lifecycle, grace period, and backend gating.
+- [x] Add premium addons and activate entitled Student cross-branch access.
+- [x] Add authenticated Socket.IO rooms, realtime outbox, delivery queue, and
+  deduplication.
+- [x] Add schedule/attendance/lesson/invoice parent events and dashboard sync.
+- [x] Resolve teacher workload/transition warnings and database schedule locks.
+- [x] Add migrations `0011` and `0012`; verify 72 backend tests.
 
 ## Skipped / Deferred Items
 
@@ -95,31 +105,17 @@ notifications, and a final mobile-first parent response review.
   - Reason: Docker and a local PostgreSQL service are not installed in the current environment.
   - Depends on: Docker Desktop or PostgreSQL runtime availability.
   - Target phase: Phase 1 verification.
-- [ ] Activate student cross-branch access.
-  - Reason: Cross-branch student access is a premium feature and must not be
-    activated without subscription entitlement.
-  - Depends on: Phase 7 addon and feature-gating models.
-  - Target phase: Phase 7.
+- [x] Activate student cross-branch access through an active premium addon and
+  explicit `student_branch_access` entitlement.
 - [ ] Expand branch analytics beyond active teacher/student counts.
   - Reason: Attendance, scheduling, invoice, and revenue data do not exist yet.
   - Depends on: Phases 4-7 operational data.
   - Target phase: Phase 10.
-- [ ] Enforce subscription-aware feature gating in authorization decisions.
-  - Reason: Subscription lifecycle and addon models belong to Phase 7.
-  - Depends on: Academy subscription and feature entitlement models.
-  - Target phase: Phase 7.
-- [ ] Realtime schedule lock validation and event synchronization.
-  - Reason: Redis/Socket.IO locking and scoped realtime delivery belong to
-    Phase 8; Phase 4 will expose an explicit no-op lock boundary only when the
-    reschedule workflow requires it.
-  - Depends on: Realtime infrastructure and distributed lock provider.
-  - Target phase: Phase 8.
-- [ ] Teacher transition-time and workload warnings.
-  - Reason: Travel-time configuration and workload policy thresholds are not
-    defined yet; overlap and branch collision remain hard blockers now.
-  - Depends on: Academy scheduling policy configuration and Phase 5 workload
-    workflow.
-  - Target phase: Phase 5.
+- [x] Enforce subscription-aware feature gating and suspended subscription
+  write restrictions.
+- [x] Add database row locking for schedule mutation and scoped Socket.IO event
+  synchronization.
+- [x] Add configurable teacher transition-time and daily workload warnings.
 
 ## Next Actions
 
@@ -163,10 +159,10 @@ notifications, and a final mobile-first parent response review.
 - [x] Expose published lesson summaries without draft leakage.
 - [x] Add parent schedule overview including cancelled/rescheduled states.
 - [x] Enforce linked-child and academy isolation across parent endpoints.
-- [ ] Define academic progress metrics from trusted finalized records.
-- [ ] Add invoice visibility after the Phase 7 financial foundation exists.
-- [ ] Add parent notification events without Phase 8 delivery shortcuts.
-- [ ] Complete the mobile-first parent API response review.
+- [x] Define academic progress metrics from trusted finalized records.
+- [x] Add invoice visibility after the Phase 7 financial foundation exists.
+- [x] Add parent notification events through the Phase 8 delivery queue.
+- [x] Complete the mobile-first parent API response review.
 
 ## Notes
 
@@ -180,7 +176,8 @@ notifications, and a final mobile-first parent response review.
 - Phase 5 dashboard and lesson summary result: 63 passed.
 - Phase 5 final result: 66 passed.
 - Phase 6 parent visibility foundation result: 69 passed.
-- Migration graph has one valid head: `0010`.
+- Phase 6-8 final result: 72 passed.
+- Migration graph has one valid head: `0012`.
 - App metadata now includes `teachers`, `teacher_branches`, and `students`.
 - Authentication must not use a rigid role column or checks such as
   `if role == admin`; permissions are additive and scope-bound.
@@ -188,8 +185,8 @@ notifications, and a final mobile-first parent response review.
   request reloads the active user, session, and role assignments from the
   database so role changes and revocation take effect immediately.
 - Auth scope foreign keys and active academy/branch validation are now active.
-- Student non-home branch access remains blocked unless the future Phase 7
-  entitlement provider returns an explicit grant.
+- Student non-home branch access remains default-deny and is granted only by
+  an active Phase 7 addon and explicit branch entitlement.
 - Teacher branch assignment is organizational only; class and schedule
   authority begins in Phase 4.
 - Platform owner permissions follow the detailed matrix and do not inherit
@@ -197,8 +194,8 @@ notifications, and a final mobile-first parent response review.
   invoice creation.
 - Teacher branch assignment grants organizational placement only. Class and
   schedule authority remains deferred to Phase 4.
-- Student cross-branch policy is default-deny. Only the home branch is valid
-  until a future Phase 7 entitlement provider explicitly grants another branch.
+- Student cross-branch policy is default-deny; active addon-backed branch
+  access is now the only non-home grant.
 - Initial scheduling validation order is branch, teacher, room, student,
   class/time conflict, cross-branch entitlement, then future realtime lock.
 - Structural time validation happens before the pipeline so invalid intervals

@@ -472,8 +472,8 @@ Scheduling adalah:
 [x] Student overlap detection
 [x] Reschedule workflow
 [x] Schedule audit logs
-[ ] Schedule notifications
-[ ] Realtime schedule sync
+[x] Schedule notifications
+[x] Realtime schedule sync
 [x] Schedule status lifecycle
 ```
 
@@ -646,15 +646,23 @@ Membangun premium parent trust layer.
 [x] Attendance visibility
 [x] Schedule visibility
 [x] Lesson summaries
-[ ] Invoice visibility
-[ ] Parent notifications
-[ ] Mobile-first parent UX
+[x] Invoice visibility
+[x] Parent notifications
+[x] Mobile-first parent UX
 ```
 
 Linked-child visibility now uses explicit `parents` and `parent_students`
 records synchronized with active scoped role assignments. Parent APIs expose
 only finalized attendance and published lesson summaries, while schedule
 overview preserves cancelled and rescheduled states for transparency.
+
+Phase 6 completed on June 14, 2026:
+
+* added trusted academic progress metrics from finalized attendance and
+  published lesson summaries only,
+* exposed linked-child invoice/payment history with no draft leakage,
+* emitted relevant schedule, attendance, lesson, and billing notifications,
+* added concise shortcuts and bounded mobile-first parent responses.
 
 ---
 
@@ -685,15 +693,25 @@ Membangun monetization foundation.
 # Checklist
 
 ```text id="jlwm0x"
-[ ] Academic invoice system
-[ ] Payment tracking
-[ ] Payment proof upload
-[ ] SaaS subscription system
-[ ] Feature gating
-[ ] Addon system
-[ ] Grace period logic
-[ ] Subscription lifecycle
+[x] Academic invoice system
+[x] Payment tracking
+[x] Payment proof upload
+[x] SaaS subscription system
+[x] Feature gating
+[x] Addon system
+[x] Grace period logic
+[x] Subscription lifecycle
 ```
+
+Phase 7 completed on June 14, 2026:
+
+* separated academic parent billing from academy SaaS subscriptions,
+* added invoice issue, overdue, cancellation, partial/full payment, proof
+  metadata, confirmation, audit, and parent visibility,
+* added plans and explicit trial, active, grace, suspended, and archived
+  subscription lifecycle handling,
+* enforced suspended subscription write restrictions in backend authorization,
+* added addon purchases and explicit Student cross-branch entitlements.
 
 ---
 
@@ -723,14 +741,25 @@ Membuat platform terasa hidup dan sinkron.
 # Checklist
 
 ```text id="jlwm2c"
-[ ] Socket.IO integration
-[ ] Realtime schedule updates
-[ ] Attendance sync
-[ ] Notification service
-[ ] Notification queue
-[ ] Deduplication system
-[ ] Realtime dashboard refresh
+[x] Socket.IO integration
+[x] Realtime schedule updates
+[x] Attendance sync
+[x] Notification service
+[x] Notification queue
+[x] Deduplication system
+[x] Realtime dashboard refresh
 ```
+
+Phase 8 completed on June 14, 2026:
+
+* added JWT-authenticated Socket.IO connections with user, academy, branch,
+  assigned-class, and linked-student rooms,
+* added durable realtime outbox and notification delivery queue records,
+* deduplicated notification and realtime event creation,
+* synchronized schedule, attendance, lesson summary, invoice, and dashboard
+  events to scoped rooms,
+* protected schedule mutation with database row locks across app instances,
+* added configurable teacher workload and cross-branch transition warnings.
 
 ---
 

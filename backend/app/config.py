@@ -34,6 +34,12 @@ class Config:
     JWT_REFRESH_TTL = timedelta(
         days=int(os.getenv("JWT_REFRESH_TTL_DAYS", "30"))
     )
+    TEACHER_MIN_TRANSITION_MINUTES = int(
+        os.getenv("TEACHER_MIN_TRANSITION_MINUTES", "30")
+    )
+    TEACHER_DAILY_SESSION_WARNING = int(
+        os.getenv("TEACHER_DAILY_SESSION_WARNING", "6")
+    )
 
     @classmethod
     def validate(cls) -> None:

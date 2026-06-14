@@ -53,6 +53,17 @@ def child_attendance(student_id):
     )
 
 
+@parent_experience_api.get("/parent/children/<uuid:student_id>/progress")
+@require_auth
+def child_progress(student_id):
+    data = ParentExperienceService().academic_progress(
+        g.principal,
+        _academy_id(),
+        student_id,
+    )
+    return success_response(data=data, message="Academic progress loaded.")
+
+
 @parent_experience_api.get(
     "/parent/children/<uuid:student_id>/lesson-summaries"
 )

@@ -19,6 +19,7 @@ from app.repositories.schedule_repository import (
 )
 from app.services.audit_log_service import AuditEvent, AuditLogService
 from app.services.authorization_service import AuthorizationService
+from app.services.parent_notification_service import ParentNotificationService
 from app.services.schedule_validation_service import (
     ScheduleCandidate,
     ScheduleValidationService,
@@ -116,6 +117,16 @@ class ScheduleService:
             "schedule.created",
             new_data=self.serialize(schedule),
         )
+        ParentNotificationService().emit_for_class(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            class_id=class_id,
+            notification_type="schedule.created",
+            priority="low",
+            title="New class schedule",
+            payload={"schedule_id": str(schedule.id), "status": schedule.status},
+            dedup_key=f"schedule.created:{schedule.id}",
+        )
         db.session.commit()
         return schedule
 
@@ -129,7 +140,13 @@ class ScheduleService:
         target_status: str,
         reason: str | None = None,
     ) -> Schedule:
-        schedule = self._get(academy_id, branch_id, schedule_id)
+        schedule = self.repository.get_scoped_for_update(
+            academy_id,
+            branch_id,
+            schedule_id,
+        )
+        if schedule is None:
+            raise NotFoundError("Schedule")
         target = self._status(target_status)
         permission = (
             Permission.SCHEDULE_CANCEL
@@ -162,6 +179,16 @@ class ScheduleService:
             previous_data=previous,
             new_data=self.serialize(schedule),
             reason=reason,
+        )
+        ParentNotificationService().emit_for_class(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            class_id=schedule.class_id,
+            notification_type="schedule.changed",
+            priority="high" if target == ScheduleStatus.CANCELLED else "medium",
+            title="Class schedule updated",
+            payload={"schedule_id": str(schedule.id), "status": schedule.status},
+            dedup_key=f"schedule.changed:{schedule.id}:{schedule.status}",
         )
         db.session.commit()
         return schedule

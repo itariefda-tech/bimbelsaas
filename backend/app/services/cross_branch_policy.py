@@ -3,12 +3,9 @@ from uuid import UUID
 
 from app.models.student import Student
 from app.repositories.teacher_branch_repository import TeacherBranchRepository
+from app.services.entitlement_service import EntitlementService
 
 StudentEntitlementProvider = Callable[[UUID, UUID], bool]
-
-
-def _deny_student_cross_branch(_student_id: UUID, _branch_id: UUID) -> bool:
-    return False
 
 
 class CrossBranchPolicy:
@@ -19,7 +16,8 @@ class CrossBranchPolicy:
     ) -> None:
         self.teacher_branches = teacher_branches or TeacherBranchRepository()
         self.student_entitlement_provider = (
-            student_entitlement_provider or _deny_student_cross_branch
+            student_entitlement_provider
+            or EntitlementService().student_can_access_branch
         )
 
     def teacher_is_assigned(self, teacher_id: UUID, branch_id: UUID) -> bool:
@@ -33,4 +31,3 @@ class CrossBranchPolicy:
         if student.home_branch_id == branch_id:
             return True
         return self.student_entitlement_provider(student.id, branch_id)
-

@@ -7,6 +7,7 @@ from app.extensions import db
 from app.models.notification import Notification
 from app.permissions.context import Principal
 from app.repositories.notification_repository import NotificationRepository
+from app.services.realtime_service import NotificationDeliveryService
 
 
 class NotificationService:
@@ -41,6 +42,7 @@ class NotificationService:
         )
         self.repository.add(notification)
         db.session.flush()
+        NotificationDeliveryService().enqueue(notification.id, academy_id)
         return notification
 
     def list_for_principal(

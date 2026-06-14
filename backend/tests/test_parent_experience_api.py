@@ -301,6 +301,10 @@ def test_parent_history_hides_drafts_and_schedule_keeps_changes_visible(
         ),
         headers=headers,
     )
+    progress = client.get(
+        f"/api/v1/parent/children/{child_id}/progress",
+        headers=headers,
+    )
 
     assert attendance.status_code == 200
     assert [item["attendance_status"] for item in attendance.json["data"]] == [
@@ -317,6 +321,15 @@ def test_parent_history_hides_drafts_and_schedule_keeps_changes_visible(
         "cancelled",
     ]
     assert schedule.json["data"]["items"][0]["starts_at"].endswith("+07:00")
+    assert progress.status_code == 200
+    assert progress.json["data"]["attendance_consistency"]["percentage"] == 100.0
+    assert progress.json["data"]["learning_activity"] == {
+        "published_lesson_summaries": 1,
+        "homework_assigned": 1,
+    }
+    assert progress.json["data"]["source_policy"] == (
+        "finalized_attendance_and_published_summaries_only"
+    )
 
 
 def test_revoked_parent_link_stops_visibility(

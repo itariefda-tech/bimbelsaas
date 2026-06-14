@@ -30,6 +30,11 @@ class Notification(db.Model):
             "dedup_key",
             name="uq_notifications_recipient_dedup",
         ),
+        UniqueConstraint(
+            "id",
+            "academy_id",
+            name="uq_notifications_id_academy",
+        ),
         Index(
             "ix_notifications_recipient_created",
             "recipient_user_id",

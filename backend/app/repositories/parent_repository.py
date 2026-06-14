@@ -128,6 +128,56 @@ class ParentStudentRepository(BaseRepository[ParentStudent]):
         )
         return {status: int(count) for status, count in rows}
 
+    def progress_snapshot(
+        self,
+        academy_id: UUID,
+        student_id: UUID,
+    ) -> dict[str, int]:
+        attendance = self.attendance_counts(academy_id, student_id)
+        published_summaries = int(
+            db.session.scalar(
+                select(func.count(LessonSummary.id))
+                .join(
+                    Attendance,
+                    (Attendance.session_id == LessonSummary.session_id)
+                    & (Attendance.student_id == student_id),
+                )
+                .join(ClassSession, ClassSession.id == Attendance.session_id)
+                .where(
+                    LessonSummary.academy_id == academy_id,
+                    LessonSummary.status == LessonSummaryStatus.PUBLISHED,
+                    ClassSession.attendance_status
+                    == AttendanceSheetStatus.FINALIZED,
+                )
+            )
+            or 0
+        )
+        homework_count = int(
+            db.session.scalar(
+                select(func.count(LessonSummary.id))
+                .join(
+                    Attendance,
+                    (Attendance.session_id == LessonSummary.session_id)
+                    & (Attendance.student_id == student_id),
+                )
+                .join(ClassSession, ClassSession.id == Attendance.session_id)
+                .where(
+                    LessonSummary.academy_id == academy_id,
+                    LessonSummary.status == LessonSummaryStatus.PUBLISHED,
+                    LessonSummary.homework.is_not(None),
+                    LessonSummary.homework != "",
+                    ClassSession.attendance_status
+                    == AttendanceSheetStatus.FINALIZED,
+                )
+            )
+            or 0
+        )
+        return {
+            **attendance,
+            "published_summaries": published_summaries,
+            "homework_assigned": homework_count,
+        }
+
     def attendance_history(
         self,
         academy_id: UUID,

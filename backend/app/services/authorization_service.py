@@ -1,11 +1,15 @@
 from uuid import UUID
 
+from sqlalchemy import select
+
 from app.common.errors import AuthorizationError
 from app.domain.organization_status import AcademyStatus, BranchStatus
 from app.extensions import db
 from app.models.academy import Academy
 from app.models.branch import Branch
 from app.models.role_assignment import RoleAssignment
+from app.models.subscription import AcademySubscription
+from app.domain.financial_status import SubscriptionStatus
 from app.permissions.constants import Permission, Role, ScopeType
 from app.permissions.context import AuthorizationTarget, Principal
 from app.permissions.policy import ROLE_PERMISSIONS
@@ -123,6 +127,27 @@ class AuthorizationService:
             }
         ):
             return False
+        if academy is not None and role != Role.PLATFORM_OWNER:
+            subscription = db.session.scalar(
+                select(AcademySubscription).where(
+                    AcademySubscription.academy_id == academy.id
+                )
+            )
+            if (
+                subscription is not None
+                and subscription.status
+                in {
+                    SubscriptionStatus.SUSPENDED,
+                    SubscriptionStatus.ARCHIVED,
+                }
+                and not AuthorizationService._is_read_permission(permission)
+                and permission
+                not in {
+                    Permission.SUBSCRIPTION_MANAGE,
+                    Permission.PAYMENT_PROOF_UPLOAD,
+                }
+            ):
+                return False
         if (
             academy is not None
             and academy.status == AcademyStatus.SUSPENDED

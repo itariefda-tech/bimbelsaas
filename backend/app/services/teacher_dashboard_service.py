@@ -2,6 +2,8 @@ from datetime import date, datetime, time, timezone
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from flask import current_app
+
 from app.common.errors import NotFoundError, ValidationError
 from app.domain.scheduling_status import ScheduleStatus
 from app.permissions.constants import Permission
@@ -94,9 +96,50 @@ class TeacherDashboardService:
             "notification_unread_count": self.notifications.unread_count(
                 principal.user.id
             ),
+            "warnings": self._warnings(schedules),
             "next_session": next_item,
             "timeline": items,
         }
+
+    def _warnings(self, schedules) -> list[dict[str, object]]:
+        active = [
+            item
+            for item in schedules
+            if item.status
+            not in {ScheduleStatus.CANCELLED, ScheduleStatus.RESCHEDULED}
+        ]
+        warnings = []
+        workload_limit = current_app.config["TEACHER_DAILY_SESSION_WARNING"]
+        if len(active) > workload_limit:
+            warnings.append(
+                {
+                    "type": "daily_workload",
+                    "severity": "medium",
+                    "session_count": len(active),
+                    "recommended_max": workload_limit,
+                }
+            )
+        minimum_gap = current_app.config["TEACHER_MIN_TRANSITION_MINUTES"]
+        for previous, following in zip(active, active[1:]):
+            gap_minutes = int(
+                (
+                    self._as_utc(following.starts_at)
+                    - self._as_utc(previous.ends_at)
+                ).total_seconds()
+                // 60
+            )
+            if previous.branch_id != following.branch_id and gap_minutes < minimum_gap:
+                warnings.append(
+                    {
+                        "type": "cross_branch_transition",
+                        "severity": "high",
+                        "from_schedule_id": str(previous.id),
+                        "to_schedule_id": str(following.id),
+                        "available_minutes": gap_minutes,
+                        "recommended_minutes": minimum_gap,
+                    }
+                )
+        return warnings
 
     def _serialize_item(self, schedule, timezone_name: str) -> dict[str, object]:
         branch = self.branches.get_by_id(schedule.branch_id)

@@ -19,6 +19,7 @@ from app.repositories.lesson_summary_repository import (
 from app.repositories.schedule_repository import ClassSessionRepository
 from app.services.audit_log_service import AuditEvent, AuditLogService
 from app.services.authorization_service import AuthorizationService
+from app.services.parent_notification_service import ParentNotificationService
 
 
 class LessonSummaryService:
@@ -117,6 +118,19 @@ class LessonSummaryService:
             action,
             previous_data=previous,
             new_data=self.serialize(summary),
+        )
+        ParentNotificationService().emit_for_class(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            class_id=summary.class_id,
+            notification_type="lesson_summary.published",
+            priority="medium",
+            title="New lesson summary",
+            payload={
+                "session_id": str(session.id),
+                "lesson_summary_id": str(summary.id),
+            },
+            dedup_key=f"lesson_summary.published:{summary.id}",
         )
         db.session.commit()
         return summary

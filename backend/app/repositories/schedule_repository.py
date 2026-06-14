@@ -30,6 +30,22 @@ class ScheduleRepository(BaseRepository[Schedule]):
             )
         )
 
+    def get_scoped_for_update(
+        self,
+        academy_id: UUID,
+        branch_id: UUID,
+        schedule_id: UUID,
+    ) -> Schedule | None:
+        return db.session.scalar(
+            select(Schedule)
+            .where(
+                Schedule.id == schedule_id,
+                Schedule.academy_id == academy_id,
+                Schedule.branch_id == branch_id,
+            )
+            .with_for_update()
+        )
+
     def list_for_branch(
         self,
         academy_id: UUID,
