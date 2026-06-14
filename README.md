@@ -523,15 +523,226 @@ Detailed rules are documented inside:
 
 ---
 
+# Backend Development
+
+The backend foundation and Phase 2 authentication system live in `backend/`.
+
+Local setup:
+
+```powershell
+docker compose up -d postgres
+cd backend
+python -m pip install -e ".[dev]"
+flask --app wsgi db upgrade
+flask --app wsgi run
+```
+
+Core health endpoints:
+
+```text
+GET /api/v1/health/live
+GET /api/v1/health/ready
+```
+
+Authentication endpoints:
+
+```text
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET  /api/v1/auth/me
+```
+
+Academy and branch endpoints:
+
+```text
+GET    /api/v1/academies
+POST   /api/v1/academies
+GET    /api/v1/academies/{academy_id}
+PATCH  /api/v1/academies/{academy_id}
+DELETE /api/v1/academies/{academy_id}
+
+GET    /api/v1/academies/{academy_id}/branches
+POST   /api/v1/academies/{academy_id}/branches
+GET    /api/v1/branches/{branch_id}
+PATCH  /api/v1/branches/{branch_id}
+DELETE /api/v1/branches/{branch_id}
+GET    /api/v1/branches/{branch_id}/summary
+```
+
+Academy and branch deletion is a soft archive operation. Status changes follow
+explicit lifecycle transitions, and branch-level users only receive records
+covered by their active role assignments.
+
+Teacher and student foundation endpoints:
+
+```text
+GET    /api/v1/academies/{academy_id}/teachers
+POST   /api/v1/branches/{branch_id}/teachers
+GET    /api/v1/academies/{academy_id}/teachers/{teacher_id}
+PATCH  /api/v1/academies/{academy_id}/teachers/{teacher_id}
+DELETE /api/v1/academies/{academy_id}/teachers/{teacher_id}
+POST   /api/v1/academies/{academy_id}/teachers/{teacher_id}/branches/{branch_id}
+DELETE /api/v1/academies/{academy_id}/teachers/{teacher_id}/branches/{branch_id}
+
+GET    /api/v1/academies/{academy_id}/students
+POST   /api/v1/branches/{branch_id}/students
+GET    /api/v1/academies/{academy_id}/students/{student_id}
+PATCH  /api/v1/academies/{academy_id}/students/{student_id}
+DELETE /api/v1/academies/{academy_id}/students/{student_id}
+GET    /api/v1/academies/{academy_id}/students/{student_id}/branch-access/{branch_id}
+```
+
+Teacher branch assignments are explicit and may span multiple active branches.
+Students always have one mandatory home branch. Non-home branch access remains
+default-deny until Phase 7 supplies an active entitlement provider.
+
+Scheduling foundation endpoints:
+
+```text
+GET  /api/v1/branches/{branch_id}/classes
+POST /api/v1/branches/{branch_id}/classes
+POST /api/v1/branches/{branch_id}/classes/{class_id}/students/{student_id}
+
+GET  /api/v1/branches/{branch_id}/rooms
+POST /api/v1/branches/{branch_id}/rooms
+
+GET   /api/v1/branches/{branch_id}/schedules
+POST  /api/v1/branches/{branch_id}/schedules
+PATCH /api/v1/branches/{branch_id}/schedules/{schedule_id}/status
+
+GET  /api/v1/branches/{branch_id}/schedules/{schedule_id}/reschedule-requests
+POST /api/v1/branches/{branch_id}/schedules/{schedule_id}/reschedule-requests
+POST /api/v1/branches/{branch_id}/reschedule-requests/{request_id}/approve
+POST /api/v1/branches/{branch_id}/reschedule-requests/{request_id}/reject
+```
+
+Schedule creation runs a fixed validation pipeline for branch scope, teacher
+assignment and overlap, room availability and overlap, Student overlap,
+duplicate class time, and cross-branch entitlement. Every Schedule creates one
+operational Session and writes an audit record. Datetimes must include an
+offset and are stored as timezone-aware UTC values with the IANA timezone kept
+for local presentation.
+
+Reschedule requests preserve immutable original/proposed snapshots and require
+reasons. Approval authority follows the requester role, reruns the full
+conflict pipeline, marks the original Schedule as `rescheduled`, and creates a
+new replacement Schedule instead of overwriting history.
+
+Attendance workflow endpoints:
+
+```text
+GET  /api/v1/branches/{branch_id}/sessions/{session_id}/attendance
+PUT  /api/v1/branches/{branch_id}/sessions/{session_id}/attendance
+POST /api/v1/branches/{branch_id}/sessions/{session_id}/attendance/finalize
+
+POST /api/v1/branches/{branch_id}/attendances/{attendance_id}/edit-requests
+POST /api/v1/branches/{branch_id}/attendance-edit-requests/{request_id}/approve
+POST /api/v1/branches/{branch_id}/attendance-edit-requests/{request_id}/reject
+```
+
+Attendance is stored per Student and Session. Draft sheets support bulk updates
+for quick teacher operation. Finalization requires every active class Student,
+locks direct edits, and routes later corrections through immutable,
+reason-backed approval requests with full audit history.
+
+Teacher dashboard and lesson summary endpoints:
+
+```text
+GET /api/v1/teacher/dashboard?date=YYYY-MM-DD&timezone=Asia/Jakarta
+
+GET  /api/v1/branches/{branch_id}/sessions/{session_id}/lesson-summary
+PUT  /api/v1/branches/{branch_id}/sessions/{session_id}/lesson-summary
+POST /api/v1/branches/{branch_id}/sessions/{session_id}/lesson-summary/publish
+
+POST /api/v1/branches/{branch_id}/lesson-summaries/{summary_id}/edit-requests
+POST /api/v1/branches/{branch_id}/lesson-summary-edit-requests/{request_id}/approve
+POST /api/v1/branches/{branch_id}/lesson-summary-edit-requests/{request_id}/reject
+```
+
+The dashboard returns only Sessions belonging to the authenticated Teacher
+profile, ordered across branches with class, room, student count, attendance,
+lesson-summary state, and action shortcuts. Lesson summaries support draft
+updates, publication locking, and audited correction approval.
+
+Material and notification boundary endpoints:
+
+```text
+GET  /api/v1/academies/{academy_id}/materials
+POST /api/v1/branches/{branch_id}/classes/{class_id}/materials
+POST /api/v1/branches/{branch_id}/classes/{class_id}/materials/{material_id}/versions
+POST /api/v1/branches/{branch_id}/classes/{class_id}/materials/{material_id}/versions/{version_id}/submit
+POST /api/v1/academies/{academy_id}/materials/{material_id}/versions/{version_id}/approve
+PUT  /api/v1/branches/{branch_id}/classes/{class_id}/materials/{material_id}/distribution
+GET  /api/v1/branches/{branch_id}/classes/{class_id}/materials
+
+GET   /api/v1/notifications
+PATCH /api/v1/notifications/{notification_id}/read
+```
+
+Materials are academy-wide identities with immutable numbered file versions.
+Only reviewed and approved versions may be distributed to a branch/Class.
+Teacher access remains assigned-Class scoped. Preview/download endpoints expose
+validated storage metadata; binary serving and signed URLs remain delegated to
+the future storage provider.
+
+The notification boundary currently stores deduplicated in-app events and read
+state. Queueing, push/email delivery, retries, and realtime synchronization
+remain Phase 8 responsibilities.
+
+Parent experience endpoints:
+
+```text
+GET /api/v1/parent/dashboard
+GET /api/v1/parent/children
+GET /api/v1/parent/children/{student_id}/overview
+GET /api/v1/parent/children/{student_id}/attendance
+GET /api/v1/parent/children/{student_id}/lesson-summaries
+GET /api/v1/parent/children/{student_id}/schedule
+```
+
+Parent-child relationships are explicit and synchronized with active
+`parent`/`linked_student` assignments. Attendance history exposes finalized
+sessions only, lesson summaries expose published records only, and schedule
+responses retain cancelled or rescheduled states for transparent monitoring.
+
+Authorization rules:
+
+* user identity is separate from role assignments,
+* users may hold multiple active roles,
+* every role assignment has an explicit platform, academy, branch, assigned
+  class, linked student, or self scope,
+* access JWTs are short-lived and refresh JWTs rotate through revocable
+  server-side sessions,
+* role and permission state is loaded from the database on every authenticated
+  request rather than trusted from JWT claims,
+* backend routes use centralized permission grants and scoped authorization
+  decorators.
+
+Run backend checks:
+
+```powershell
+cd backend
+python -m pytest
+python -m compileall -q app tests migrations
+```
+
+---
+
 # Current Development Status
 
 Current phase:
 
-* architecture planning
-* operational design
-* business rule definition
-* multi-branch foundation
-* SaaS structure planning
+* Phase 0 documentation foundation completed
+* Phase 1 core backend foundation completed
+* Phase 2 authentication and role system completed
+* Phase 3 academy, branch, teacher, and student foundation completed
+* Phase 4 operational scheduling and reschedule workflow completed
+* Phase 5 attendance lifecycle and edit approval foundation completed
+* Phase 5 teacher dashboard and lesson summary lifecycle completed
+* Phase 5 material access and notification boundary completed
+* Phase 6 linked-child visibility, attendance, summaries, and schedule completed
+* next: Phase 6 progress, invoice visibility, and parent notifications
 
 ---
 

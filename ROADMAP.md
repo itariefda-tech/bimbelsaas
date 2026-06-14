@@ -161,22 +161,33 @@ Membangun pondasi project sebelum coding besar dimulai.
 # Checklist
 
 ```text id="0jlwm9"
-[ ] Finalize README.md
-[ ] Finalize PROJECT_VISION.md
-[ ] Finalize CORE_FOUNDATION.md
-[ ] Finalize BUSINESS_RULES.md
-[ ] Finalize ROLE_MATRIX.md
-[ ] Finalize MULTI_BRANCH_ARCHITECTURE.md
-[ ] Finalize CLASS_SCHEDULING_SYSTEM.md
-[ ] Finalize PARENT_EXPERIENCE.md
-[ ] Finalize TEACHER_WORKFLOW.md
-[ ] Finalize SUBSCRIPTION_TIER_SYSTEM.md
-[ ] Finalize DATABASE_ARCHITECTURE.md
-[ ] Finalize SYSTEM_ARCHITECTURE.md
-[ ] Finalize UI_UX_GUIDELINES.md
-[ ] Finalize AI_AGENT_GUIDELINES.md
-[ ] Finalize ROADMAP.md
+[x] Finalize README.md
+[x] Finalize PROJECT_VISION.md
+[x] Finalize CORE_FOUNDATION.md
+[x] Finalize BUSINESS_RULES.md
+[x] Finalize ROLE_MATRIX.md
+[x] Finalize MULTI_BRANCH_ARCHITECTURE.md
+[x] Finalize CLASS_SCHEDULING_SYSTEM.md
+[x] Finalize PARENT_EXPERIENCE.md
+[x] Finalize TEACHER_WORKFLOW.md
+[x] Finalize SUBSCRIPTION_TIER_SYSTEM.md
+[x] Finalize DATABASE_ARCHITECTURE.md
+[x] Finalize SYSTEM_ARCHITECTURE.md
+[x] Finalize UI_UX_GUIDELINES.md
+[x] Finalize AI_AGENT_GUIDELINES.md
+[x] Finalize PERMISSION_MATRIX.md
+[x] Finalize ROADMAP.md
 ```
+
+---
+
+# Implementation Notes
+
+Completed on June 14, 2026:
+
+* all 16 foundation documents were confirmed present and reviewed,
+* `TODO.md` was activated as project working memory,
+* architecture and implementation boundaries were validated before coding.
 
 ---
 
@@ -222,18 +233,36 @@ Membangun fondasi backend stabil.
 # Checklist
 
 ```text id="jlwm8m"
-[ ] Setup backend repository structure
-[ ] Setup Flask architecture
-[ ] Setup PostgreSQL
-[ ] Setup migration system
-[ ] Setup environment configuration
-[ ] Setup service layer pattern
-[ ] Setup repository pattern
-[ ] Setup audit log system
-[ ] Setup error handling system
-[ ] Setup API response standard
-[ ] Setup health check endpoints
+[x] Setup backend repository structure
+[x] Setup Flask architecture
+[x] Setup PostgreSQL
+[x] Setup migration system
+[x] Setup environment configuration
+[x] Setup service layer pattern
+[x] Setup repository pattern
+[x] Setup audit log system
+[x] Setup error handling system
+[x] Setup API response standard
+[x] Setup health check endpoints
 ```
+
+---
+
+# Implementation Notes
+
+Completed on June 14, 2026:
+
+* created a modular Flask application factory under `backend/`,
+* configured PostgreSQL through environment variables and `compose.yaml`,
+* added SQLAlchemy and a single-head Alembic migration foundation,
+* established route, service, repository, and database boundaries,
+* added a tenant-aware centralized `audit_logs` model and service,
+* standardized success and error envelopes with request IDs,
+* added liveness and database readiness endpoints,
+* added focused tests using an isolated in-memory database.
+
+PostgreSQL container execution remains an environment verification item in
+`TODO.md` because Docker and PostgreSQL are not installed on the current host.
 
 ---
 
@@ -276,16 +305,42 @@ Membangun identity & permission foundation.
 # Checklist
 
 ```text id="jlwm1o"
-[ ] User authentication
-[ ] Session management
-[ ] JWT/session validation
-[ ] Role middleware
-[ ] Permission validation
-[ ] Academy isolation
-[ ] Branch scope validation
-[ ] Multi-role support
-[ ] Audit logging for auth
+[x] User authentication
+[x] Session management
+[x] JWT/session validation
+[x] Role middleware
+[x] Permission validation
+[x] Academy isolation
+[x] Branch scope validation
+[x] Multi-role support
+[x] Audit logging for auth
 ```
+
+---
+
+# Implementation Notes
+
+Completed on June 14, 2026:
+
+* added separate `users`, `role_assignments`, and `auth_sessions` models,
+* implemented password hashing and academy-scoped login identity,
+* added short-lived access JWTs and rotating refresh JWTs,
+* stored only refresh JTI hashes in revocable server-side sessions,
+* added centralized role permission grants derived from the permission matrix,
+* implemented explicit platform, academy, branch, assigned class, linked
+  student, and self scopes,
+* added authentication and permission decorators that reload active database
+  state on every request,
+* added login, refresh, logout, and current-user API endpoints,
+* audited successful login, failed login, refresh, logout, role assignment, and
+  role revocation events,
+* added migration `0002` with deterministic tenant and role scope uniqueness,
+* verified multi-role additive access without cross-academy or cross-branch
+  privilege expansion.
+
+Academy and branch UUID scopes are enforced now. Their foreign keys and active
+status checks will bind to the owning records in Phase 3, when those tables are
+created. Subscription feature gating remains scheduled for Phase 7.
 
 ---
 
@@ -324,15 +379,54 @@ Membangun multi-branch operational structure.
 # Checklist
 
 ```text id="jlwm6g"
-[ ] Academy CRUD
-[ ] Branch CRUD
-[ ] Branch visibility rules
-[ ] Branch operational isolation
-[ ] Multi-role branch assignment
-[ ] Teacher branch assignment
-[ ] Student branch relation
-[ ] Branch analytics foundation
+[x] Academy CRUD
+[x] Branch CRUD
+[x] Branch visibility rules
+[x] Branch operational isolation
+[x] Multi-role branch assignment
+[x] Teacher branch assignment
+[x] Student branch relation
+[x] Branch analytics foundation
 ```
+
+---
+
+# Implementation Notes
+
+Core academy and branch batch completed on June 14, 2026:
+
+* added `academies` and `branches` as first-class tenant records,
+* implemented explicit academy and branch status transition maps,
+* used archived status and timestamps instead of destructive deletion,
+* bound `users.academy_id` and scoped role assignments to real foreign keys,
+* validated role assignment academy/branch ownership and active status,
+* added permission-protected Academy and Branch CRUD APIs,
+* restricted branch list and detail visibility to active role scopes,
+* blocked operational permissions on inactive, maintenance, suspended, or
+  archived branches,
+* made suspended academies read-only for non-platform roles,
+* added migration `0003` and branch/academy audit events,
+* verified cross-academy and cross-branch isolation through API tests.
+
+Follow-up completed on June 14, 2026:
+
+* added academy-scoped Teacher profiles with unique teacher codes,
+* added explicit `teacher_branches` assignments with active and ended states,
+* required every teacher to retain at least one active branch while active,
+* added Student profiles with mandatory home branches,
+* enforced teacher, student, user, and branch academy consistency through
+  composite foreign keys,
+* added permission-protected Teacher and Student profile APIs,
+* added default-deny cross-branch student policy with a Phase 7 entitlement
+  provider interface,
+* kept teacher organizational assignment separate from class and schedule
+  authority,
+* added branch summary counts for active students and active teacher
+  assignments only,
+* added migration `0004` and cross-branch isolation tests.
+
+Phase 3 is complete. Premium student cross-branch activation remains in Phase 7
+and scheduling conflict validation remains in Phase 4.
 
 ---
 
@@ -372,16 +466,51 @@ Scheduling adalah:
 # Checklist
 
 ```text id="jlwm4h"
-[ ] Class schedule engine
-[ ] Teacher conflict detection
-[ ] Room conflict detection
-[ ] Student overlap detection
-[ ] Reschedule workflow
-[ ] Schedule audit logs
+[x] Class schedule engine
+[x] Teacher conflict detection
+[x] Room conflict detection
+[x] Student overlap detection
+[x] Reschedule workflow
+[x] Schedule audit logs
 [ ] Schedule notifications
 [ ] Realtime schedule sync
-[ ] Schedule status lifecycle
+[x] Schedule status lifecycle
 ```
+
+---
+
+# Implementation Notes
+
+First scheduling batch completed on June 14, 2026:
+
+* added branch-scoped Class and Room resources,
+* added explicit `class_students` enrollment records,
+* added timezone-aware Schedule records and one operational Session per
+  scheduled meeting,
+* enforced academy and branch consistency with composite foreign keys,
+* implemented the ordered branch, teacher, room, student, class/time, and
+  cross-branch validation pipeline,
+* blocked teacher, room, student, and duplicate class overlaps using indexed
+  overlap queries,
+* enforced active teacher branch assignment and default-deny Student
+  cross-branch access,
+* added Schedule and Session status lifecycle synchronization,
+* audited schedule creation and status transitions,
+* added migration `0005` and focused permission/isolation/conflict tests.
+
+Reschedule workflow completed on June 14, 2026:
+
+* added immutable Schedule change requests with mandatory request reasons,
+* preserved original and proposed values as separate snapshots,
+* enforced requester-specific approval authority and mandatory decision reasons,
+* reran the complete conflict pipeline on both request and approval,
+* rejected stale approvals when the original Schedule changed,
+* preserved the original Schedule as `rescheduled` and created a replacement,
+* audited request, approval/rejection, original transition, and replacement,
+* added migration `0006` and focused reschedule workflow tests.
+
+Notification delivery and distributed realtime lock/sync remain deferred until
+the Phase 8 infrastructure exists.
 
 ---
 
@@ -422,15 +551,62 @@ Membangun operational teacher experience.
 # Checklist
 
 ```text id="jlwm3d"
-[ ] Teacher dashboard
-[ ] Today timeline
-[ ] Quick attendance
-[ ] Lesson summary system
-[ ] Material access
-[ ] Teacher notifications
-[ ] Mobile-first teacher UX
-[ ] Attendance validation
+[x] Teacher dashboard
+[x] Today timeline
+[x] Quick attendance
+[x] Lesson summary system
+[x] Material access
+[x] Teacher notification boundary
+[x] Mobile-first teacher API
+[x] Attendance validation
 ```
+
+---
+
+# Implementation Notes
+
+Attendance foundation completed on June 14, 2026:
+
+* added one attendance record per active Student and operational Session,
+* supported `present`, `late`, `absent`, `excused`, and `online` statuses,
+* added bulk draft create/update for assigned classes,
+* required complete active enrollment coverage before Session finalization,
+* locked direct edits after finalization,
+* added immutable finalized-attendance edit requests with mandatory reasons,
+* enforced separate Branch Admin/Manager or Academy Director approval,
+* prevented self-approval and stale-request overwrite,
+* audited recording, draft edits, finalization, requests, and decisions,
+* added migration `0007` and focused lifecycle/authority tests.
+
+Realtime attendance delivery remains deferred to Phase 8.
+
+Teacher dashboard and lesson summary workflow completed on June 14, 2026:
+
+* added a date/timezone-aware teacher tactical dashboard,
+* returned chronological assigned Sessions across multiple branches,
+* included branch, room, class, student count, operational statuses, and
+  actionable attendance/lesson-summary shortcuts,
+* isolated results by the authenticated Teacher profile and assigned Classes,
+* added one structured lesson summary per Session with draft autosave,
+* added publish locking and immutable published-summary edit requests,
+* required reasons, separate approval, stale snapshot checks, and audit logs,
+* added migration `0008` and focused dashboard/lifecycle/isolation tests.
+
+Material access and teacher API boundary completed on June 14, 2026:
+
+* added academy-wide Material identities with immutable numbered versions,
+* enforced `draft -> review -> ready` approval before distribution,
+* preserved version history and allowed rollback through distribution targets,
+* added branch/class-specific distribution and teacher access isolation,
+* exposed preview/download metadata without bypassing the future storage layer,
+* surfaced material readiness, count, shortcuts, and unread notification count
+  in the teacher dashboard,
+* added bounded mobile-friendly class material and notification responses,
+* added deduplicated in-app material update notifications and read state,
+* added migration `0009` and focused version/distribution/isolation tests.
+
+Binary file delivery, signed URLs, notification queues, push/email delivery,
+reminder scheduling, retries, and realtime synchronization remain Phase 8.
 
 ---
 
@@ -465,15 +641,20 @@ Membangun premium parent trust layer.
 # Checklist
 
 ```text id="jlwm7q"
-[ ] Parent dashboard
-[ ] Child overview
-[ ] Attendance visibility
-[ ] Schedule visibility
-[ ] Lesson summaries
+[x] Parent dashboard
+[x] Child overview
+[x] Attendance visibility
+[x] Schedule visibility
+[x] Lesson summaries
 [ ] Invoice visibility
 [ ] Parent notifications
 [ ] Mobile-first parent UX
 ```
+
+Linked-child visibility now uses explicit `parents` and `parent_students`
+records synchronized with active scoped role assignments. Parent APIs expose
+only finalized attendance and published lesson summaries, while schedule
+overview preserves cancelled and rescheduled states for transparency.
 
 ---
 
