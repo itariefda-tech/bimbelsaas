@@ -537,6 +537,17 @@ flask --app wsgi db upgrade
 flask --app wsgi run
 ```
 
+Root-level convenience commands:
+
+```powershell
+python app.py
+npm run dev
+```
+
+Both commands run the Flask/Socket.IO backend from `backend/`. This repository
+does not include a frontend application yet, so `npm run dev` is only a backend
+shortcut.
+
 Core health endpoints:
 
 ```text
@@ -727,6 +738,28 @@ python -m pytest
 python -m compileall -q app tests migrations
 ```
 
+Run local operational CLI checks from the repository root:
+
+```powershell
+python scripts/manage.py init-db
+python scripts/manage.py seed-demo
+python scripts/manage.py smoke-check
+```
+
+Equivalent npm wrappers:
+
+```powershell
+npm run init-db
+npm run seed-demo
+npm run smoke-check
+```
+
+Run PostgreSQL staging validation when PostgreSQL/Redis are available:
+
+```powershell
+python scripts/validate_staging_postgres.py
+```
+
 ---
 
 # Current Development Status
@@ -744,7 +777,12 @@ Current phase:
 * Phase 6 premium parent experience completed
 * Phase 7 financial, subscription, addon, and feature-gating foundation completed
 * Phase 8 Socket.IO, realtime outbox, notification queue, and sync completed
-* next: Phase 9 UI/UX refinement
+* Phase 9 backend UI/UX support completed
+* Phase 10 analytics and reporting foundation completed
+* Phase 11 backend production hardening completed
+* Phase 12 backend beta launch preparation completed
+* Phase 13 backend scale and optimization foundation completed
+* next: Run staging beta cohort, Redis/queue validation, and infrastructure tests
 
 ---
 

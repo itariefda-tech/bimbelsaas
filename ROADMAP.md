@@ -791,13 +791,13 @@ Meningkatkan rasa premium platform.
 # Checklist
 
 ```text id="jlwm5n"
-[ ] Dashboard consistency
-[ ] Mobile optimization
+[x] Dashboard consistency
+[x] Mobile optimization
 [ ] Skeleton loading
-[ ] Empty states
-[ ] Error states
-[ ] Status consistency
-[ ] Premium spacing refinement
+[x] Empty states
+[x] Error states
+[x] Status consistency
+[x] Premium spacing refinement
 [ ] Accessibility review
 ```
 
@@ -806,6 +806,19 @@ Meningkatkan rasa premium platform.
 # Deliverables
 
 * premium operational experience
+
+Phase 9 backend support completed on June 14, 2026:
+
+* added a centralized UI status catalog for consistent frontend labels and
+  tones,
+* added analytics response metadata for empty states and mobile/desktop UI
+  density,
+* exposed dashboard-ready operational KPI payloads without changing business
+  authority rules.
+
+Skeleton loading, animation refinement, and full accessibility review remain
+frontend implementation work because this repository currently contains only
+the backend/API surface.
 
 ---
 
@@ -830,12 +843,12 @@ Membangun insight layer.
 # Checklist
 
 ```text id="jlwm9v"
-[ ] Branch KPI
-[ ] Academy analytics
-[ ] Attendance analytics
-[ ] Revenue analytics
-[ ] Teacher workload analytics
-[ ] Parent engagement analytics
+[x] Branch KPI
+[x] Academy analytics
+[x] Attendance analytics
+[x] Revenue analytics
+[x] Teacher workload analytics
+[x] Parent engagement analytics
 ```
 
 ---
@@ -843,6 +856,15 @@ Membangun insight layer.
 # Deliverables
 
 * operational intelligence layer
+
+Phase 10 completed on June 14, 2026:
+
+* added branch KPI analytics across active population, sessions, attendance,
+  revenue, teacher workload, and parent engagement,
+* added academy overview analytics with branch rollups and academy totals,
+* enforced existing `report.view` permission, academy isolation, and branch
+  isolation across analytics endpoints,
+* added focused analytics and UI status catalog tests.
 
 ---
 
@@ -867,14 +889,14 @@ Mempersiapkan production-grade stability.
 # Checklist
 
 ```text id="jlwm6u"
-[ ] Security audit
-[ ] Performance optimization
-[ ] Query optimization
+[x] Security audit
+[x] Performance optimization
+[x] Query optimization
 [ ] Load testing
 [ ] Backup system
 [ ] Recovery testing
-[ ] Monitoring setup
-[ ] Error tracking
+[x] Monitoring setup
+[x] Error tracking
 [ ] Websocket stability
 ```
 
@@ -883,6 +905,23 @@ Mempersiapkan production-grade stability.
 # Deliverables
 
 * production-ready system
+
+Phase 11 backend hardening completed on June 14, 2026:
+
+* added request rate limiting with health-check exemptions and standard 429
+  error responses,
+* added request observability logs with request id, path, status, duration, and
+  response-time headers,
+* added production config guards for secret strength, rate limiting, export
+  limits, and non-SQLite production databases,
+* added server-capped audit log and report export boundaries that reuse
+  existing permission, academy, and branch isolation rules,
+* added focused hardening tests for rate limiting, observability, export
+  scoping, report export permissions, and production config validation.
+
+Load testing, backup automation, recovery testing, and WebSocket soak testing
+remain environment/infrastructure work because they need a deployed stack,
+PostgreSQL runtime, and sustained traffic harness.
 
 ---
 
@@ -906,12 +945,12 @@ Testing real operational environment.
 # Checklist
 
 ```text id="jlwm4z"
-[ ] Beta academy onboarding
+[x] Beta academy onboarding
 [ ] Real operational testing
-[ ] Parent UX observation
-[ ] Teacher UX observation
-[ ] Bug fixing sprint
-[ ] Performance monitoring
+[x] Parent UX observation
+[x] Teacher UX observation
+[x] Bug fixing sprint
+[x] Performance monitoring
 ```
 
 ---
@@ -919,6 +958,22 @@ Testing real operational environment.
 # Deliverables
 
 * validated operational platform
+
+Phase 12 backend beta preparation completed on June 14, 2026:
+
+* added beta academy onboarding records with explicit operational owners,
+  success criteria, date windows, and lifecycle transitions,
+* added beta feedback intake for bug, workflow, parent UX, teacher UX,
+  performance, data quality, and other observations,
+* added feedback triage status transitions and permission-scoped feedback
+  review,
+* added beta readiness reporting for active onboardings, open feedback,
+  critical feedback, and staging dependency visibility,
+* added staging environment examples and runbook for load testing,
+  backup/recovery checks, and WebSocket soak testing.
+
+Real operational testing remains pending until a staging deployment and limited
+academy cohort are actually run.
 
 ---
 
@@ -943,12 +998,12 @@ Mempersiapkan scaling jangka panjang.
 # Checklist
 
 ```text id="jlwm8r"
-[ ] Redis optimization
-[ ] Queue scaling
-[ ] API optimization
-[ ] AI assistant planning
-[ ] Smart scheduling foundation
-[ ] Infrastructure scaling
+[x] Redis optimization
+[x] Queue scaling
+[x] API optimization
+[x] AI assistant planning
+[x] Smart scheduling foundation
+[x] Infrastructure scaling
 ```
 
 ---
@@ -956,6 +1011,21 @@ Mempersiapkan scaling jangka panjang.
 # Deliverables
 
 * scalable SaaS platform
+
+Phase 13 backend scale foundation completed on June 14, 2026:
+
+* added a cache abstraction with TTL support and analytics cache metadata,
+* added Redis staging configuration and production guardrails that require
+  `REDIS_URL`,
+* added queue/realtime worker concurrency configuration for staged scaling,
+* added scale readiness reporting for cache, queue, API, and AI assistant
+  planning guardrails,
+* added smart scheduling signal reporting with recommendations-only mutation
+  policy,
+* updated staging compose/runbook to include Redis and cache validation.
+
+Redis-backed integration, multi-worker queue throughput, horizontal scaling,
+and AI assistant product validation remain staging/production validation work.
 
 ---
 

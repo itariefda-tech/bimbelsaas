@@ -7,6 +7,7 @@ from app.models.attendance import Attendance
 from app.models.attendance_edit_request import AttendanceEditRequest
 from app.models.auth_session import AuthSession
 from app.models.audit_log import AuditLog
+from app.models.beta import BetaAcademyOnboarding, BetaFeedback
 from app.models.branch import Branch
 from app.models.class_session import ClassSession
 from app.models.class_student import ClassStudent
@@ -39,6 +40,8 @@ __all__ = [
     "AttendanceEditRequest",
     "AuditLog",
     "AuthSession",
+    "BetaAcademyOnboarding",
+    "BetaFeedback",
     "Branch",
     "ClassSession",
     "ClassStudent",

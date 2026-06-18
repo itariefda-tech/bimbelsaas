@@ -92,6 +92,16 @@ class ValidationError(AppError):
         )
 
 
+class RateLimitError(AppError):
+    def __init__(self, retry_after_seconds: int) -> None:
+        super().__init__(
+            message="Too many requests. Please retry later.",
+            code="rate_limit_exceeded",
+            status_code=429,
+            details={"retry_after_seconds": retry_after_seconds},
+        )
+
+
 def register_error_handlers(app: Flask) -> None:
     @app.errorhandler(AppError)
     def handle_app_error(error: AppError):

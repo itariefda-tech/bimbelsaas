@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}BimbelSaaS{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mvp.css') }}">
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('dashboard') }}">BimbelSaaS</a>
+      {% if user %}
+        <form method="post" action="{{ url_for('logout') }}">
+          <button class="ghost-button" type="submit">Logout</button>
+        </form>
+      {% endif %}
+    </header>
+    <main class="page-shell">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="messages">
+            {% for category, message in messages %}
+              <p class="message {{ category }}">{{ message }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

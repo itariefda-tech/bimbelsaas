@@ -2,6 +2,7 @@ import pytest
 from uuid import uuid4
 
 from app import create_app
+from app.common.cache import cache
 from app.config import Config
 from app.extensions import db
 from app.models.academy import Academy
@@ -16,6 +17,8 @@ class TestConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite+pysqlite:///:memory:"
     SQLALCHEMY_ENGINE_OPTIONS = {}
     LOG_LEVEL = "CRITICAL"
+    RATE_LIMIT_ENABLED = False
+    OBSERVABILITY_LOG_REQUESTS = False
 
 
 @pytest.fixture()
@@ -27,6 +30,7 @@ def app():
         db.session.remove()
         db.drop_all()
         db.engine.dispose()
+        cache.clear()
 
 
 @pytest.fixture()

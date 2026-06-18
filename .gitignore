@@ -8,4 +8,5 @@ htmlcov/
 dist/
 build/
 *.egg-info/
-
+backend/instance/
+storage/

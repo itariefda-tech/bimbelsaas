@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block title %}Error {{ status_code }} - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <section class="error-panel">
+    <p class="eyebrow">Request blocked</p>
+    <h1>Error {{ status_code }}</h1>
+    {% if status_code == 403 %}
+      <p class="lead">Role aktif Anda tidak memiliki akses ke dashboard tersebut.</p>
+    {% elif status_code == 404 %}
+      <p class="lead">Halaman yang diminta tidak ditemukan.</p>
+    {% else %}
+      <p class="lead">Server mengalami masalah saat memproses request.</p>
+    {% endif %}
+    <a class="primary-link" href="{{ url_for('dashboard') }}">Kembali ke dashboard</a>
+  </section>
+{% endblock %}

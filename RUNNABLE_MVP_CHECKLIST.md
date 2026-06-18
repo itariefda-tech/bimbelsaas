@@ -1,0 +1,242 @@
+# RUNNABLE_MVP_CHECKLIST.md
+
+## Goal
+
+Membuat aplikasi bisa berjalan end-to-end secara minimal:
+- server running,
+- database siap,
+- login bisa,
+- dashboard role tampil,
+- tidak ada fatal error.
+
+---
+
+## Phase A - Project Audit
+
+- [x] Cek struktur folder project
+- [x] Cek apakah backend Flask sudah ada
+- [x] Cek apakah `app.py` tersedia
+- [x] Cek apakah application factory tersedia
+- [x] Cek dependency Python
+- [x] Cek file konfigurasi environment
+- [x] Cek database config
+- [x] Cek frontend/templates/static assets
+- [x] Cek command running yang benar
+
+### Output
+
+Audit awal 2026-06-18:
+- Project memiliki root docs lengkap, root `app.py`, folder `backend/`, `backend/app/`, migrations, tests, dan scripts.
+- Backend Flask application factory tersedia di `backend/app/__init__.py` dengan SQLAlchemy, Flask-Migrate, Socket.IO, API v1, error handler, request context, dan rate limiter.
+- Root `app.py` sudah mencoba menjalankan backend Socket.IO dari `backend/`.
+- Dependency Python ada di `backend/pyproject.toml`, tetapi belum ada root `requirements.txt`.
+- `.env.example` tersedia, namun default database masih PostgreSQL sehingga kurang cocok untuk Runnable MVP lokal tanpa Docker/PostgreSQL.
+- Database models dan migration chain sudah besar sampai `0013`, tetapi belum ada command bootstrap SQLite/demo data yang sederhana.
+- API health tersedia di `/api/v1/health/live` dan `/api/v1/health/ready`, tetapi belum ada root `GET /health` sesuai target MVP.
+- Tidak ditemukan frontend app. Belum ada Flask templates/static untuk login page dan dashboard role minimal.
+- Command target tetap `python app.py`, tetapi perlu recovery config, init DB, seed, dan smoke flow agar benar-benar runnable lokal.
+
+---
+
+## Phase B - Server Boot Recovery
+
+- [x] Pastikan ada entry point aplikasi
+- [x] Pastikan command run resmi tersedia
+- [x] Pastikan error import diperbaiki
+- [x] Pastikan route health check tersedia
+- [x] Pastikan server bisa start tanpa crash
+
+### Output
+
+Completed on June 18, 2026:
+- Root `app.py` loads `.env`/`.env.example`, points Python imports to `backend/`, creates the Flask app, and runs Socket.IO.
+- Official command is `python app.py`.
+- Root `GET /health` returns 200.
+- Smoke test against a real local server returned 200 for `/health` and `/login`.
+
+---
+
+## Phase C - Environment & Dependency Recovery
+
+- [x] Pastikan `requirements.txt` tersedia
+- [x] Pastikan dependency minimal lengkap
+- [x] Pastikan `.env.example` tersedia
+- [x] Pastikan konfigurasi development aman
+- [x] Pastikan instruksi install jelas di README
+
+### Output
+
+Completed on June 18, 2026:
+- Root `requirements.txt` is available for local MVP installation.
+- `.env.example` defaults to `APP_ENV=development` and `DATABASE_URL=sqlite:///dev.db`.
+- Production config still rejects SQLite, weak secrets, disabled rate limiting, and missing Redis.
+
+---
+
+## Phase D - Database Boot Recovery
+
+- [x] Pastikan database bisa dibuat
+- [x] Pastikan tabel minimal tersedia
+- [x] Pastikan migration/init database tersedia
+- [x] Pastikan seed data demo tersedia
+- [x] Pastikan academy demo tersedia
+- [x] Pastikan branch demo tersedia
+- [x] Pastikan role demo tersedia
+- [x] Pastikan user demo tersedia
+
+### Output
+
+Completed on June 18, 2026:
+- `python scripts/init_demo.py` creates the SQLite development database with `db.create_all()`.
+- Demo academy, branch, subscription, role assignments, teacher, parent, and student records are seeded idempotently.
+- Demo password for all seeded users is `password123`.
+
+---
+
+## Phase E - Minimal Auth Recovery
+
+- [x] Login page tersedia
+- [x] Logout tersedia
+- [x] Session/JWT berjalan
+- [x] Role user terbaca
+- [x] Redirect dashboard sesuai role
+- [x] Unauthorized access ditangani
+
+### Output
+
+Completed on June 18, 2026:
+- `/login` renders a minimal demo login page.
+- `/login` POST uses the existing `AuthService` and stores access/refresh tokens in session.
+- `/logout` clears session and calls existing logout flow when authenticated.
+- `/dashboard` redirects to the first active role.
+- `/dashboard/<role>` rejects unavailable roles with 403.
+
+---
+
+## Phase F - Minimal Dashboard Shell
+
+- [x] Platform Owner dashboard placeholder
+- [x] Academy Director dashboard placeholder
+- [x] Branch Manager dashboard placeholder
+- [x] Branch Admin dashboard placeholder
+- [x] Teacher dashboard placeholder
+- [x] Parent dashboard placeholder
+- [x] Student dashboard placeholder
+- [x] Role-based navigation minimal
+
+### Output
+
+Completed on June 18, 2026:
+- `backend/app/templates/dashboard.html` renders a role-aware dashboard shell.
+- Dashboard context includes academy name, branch scope, branch count, user identity, and active role navigation.
+
+---
+
+## Phase G - Minimal Frontend Shell
+
+- [x] Base layout tersedia
+- [x] Header/topbar tersedia
+- [x] Sidebar atau mobile nav tersedia
+- [x] Static CSS/JS termuat
+- [x] Halaman tidak blank
+- [x] Error page minimal tersedia
+
+### Output
+
+Completed on June 18, 2026:
+- Minimal templates are available in `backend/app/templates/`.
+- Minimal CSS is available in `backend/app/static/css/mvp.css`.
+- HTML pages render through Flask without requiring a separate frontend app.
+
+---
+
+## Phase H - Smoke Test
+
+- [x] Server running
+- [x] Health check OK
+- [x] Login demo berhasil
+- [x] Dashboard role tampil
+- [x] Static files termuat
+- [x] Tidak ada error 500
+- [x] Tidak ada import error
+- [x] Tidak ada migration fatal error
+
+### Output
+
+Verified on June 18, 2026:
+- `python -m compileall app.py backend/app scripts` passed.
+- `python scripts/init_demo.py` passed.
+- Flask test client returned: `/health` 200, `/login` 200, login POST 302, `/dashboard` 302, `/dashboard/platform_owner` 200.
+- Real local server smoke returned 200 for `/health` and `/login`.
+- Targeted pytest suites passed:
+  - `backend/tests/test_phase11_hardening.py`: 10 passed.
+  - `backend/tests/test_beta_launch_api.py backend/tests/test_analytics_api.py backend/tests/test_scale_optimization_api.py`: 12 passed.
+- Full `python -m pytest -q` passed in about 3 minutes 15 seconds on this host.
+
+---
+
+## Phase I - CI & PostgreSQL Staging Validation
+
+- [x] GitHub Actions CI tersedia
+- [x] CI menjalankan dependency install
+- [x] CI menjalankan compile check
+- [x] CI menjalankan full pytest suite
+- [x] CI menjalankan local operational CLI smoke
+- [x] CI menyediakan PostgreSQL service
+- [x] CI menyediakan Redis service
+- [x] Script PostgreSQL staging validation tersedia
+- [x] CLI resmi `init-db` tersedia
+- [x] CLI resmi `seed-demo` tersedia
+- [x] CLI resmi `smoke-check` tersedia
+- [x] Runbook staging diperbarui
+- [ ] Validasi PostgreSQL staging dijalankan di host lokal/staging nyata
+
+### Output
+
+Completed on June 18, 2026:
+- `.github/workflows/ci.yml` runs compile, full tests, and PostgreSQL staging validation.
+- `scripts/validate_staging_postgres.py` requires PostgreSQL `DATABASE_URL`, runs `flask --app wsgi db upgrade`, checks database connectivity, and verifies live/readiness health endpoints.
+- `scripts/manage.py` provides official local commands: `init-db`, `seed-demo`, and `smoke-check`.
+- npm wrappers are available: `npm run init-db`, `npm run seed-demo`, and `npm run smoke-check`.
+- `npm run staging:validate` wraps the staging validation script.
+- `STAGING_RUNBOOK.md` documents the repeatable staging validation flow.
+
+Local limitation:
+- Docker is not installed on this host, so the PostgreSQL/Redis service validation could not be executed locally.
+- The script was compile-checked and verified to reject non-PostgreSQL `DATABASE_URL`.
+
+---
+
+## Skipped / Deferred
+
+Format:
+- Item:
+- Reason:
+- Dependency:
+- Target follow-up:
+
+---
+
+## Official Run Command
+
+Target command resmi:
+
+```bash
+python app.py
+```
+
+Command ini sudah terverifikasi untuk development lokal setelah `python scripts/init_demo.py`.
+
+---
+
+## Demo Credentials
+
+All seeded demo users use password `password123`:
+
+- `owner@example.com`
+- `director@example.com`
+- `manager@example.com`
+- `admin@example.com`
+- `teacher@example.com`
+- `parent@example.com`
+- `student@example.com`

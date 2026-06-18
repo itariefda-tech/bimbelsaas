@@ -1,0 +1,14 @@
+{
+  "name": "bimbelsaas",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "backend:dev": "node scripts/dev.mjs",
+    "test": "cd backend && python -m pytest -q",
+    "compile": "cd backend && python -m compileall -q app tests migrations",
+    "init-db": "python scripts/manage.py init-db",
+    "seed-demo": "python scripts/manage.py seed-demo",
+    "smoke-check": "python scripts/manage.py smoke-check",
+    "staging:validate": "python scripts/validate_staging_postgres.py"
+  }
+}
