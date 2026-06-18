@@ -10,6 +10,7 @@
     "seed-demo": "python scripts/manage.py seed-demo",
     "smoke-check": "python scripts/manage.py smoke-check",
     "ui:quality": "node scripts/ui_quality_gate.mjs",
+    "frontend:readiness": "node scripts/frontend_readiness_gate.mjs",
     "staging:validate": "python scripts/validate_staging_postgres.py"
   },
   "devDependencies": {

@@ -139,7 +139,7 @@ Implementation notes:
 
 ## Phase F3 - Next.js Readiness Gate
 
-Status: blocked by CI/staging
+Status: implemented, externally blocked
 
 Objective:
 
@@ -147,12 +147,26 @@ Memulai Next.js hanya setelah backend deployment confidence cukup.
 
 Entry criteria:
 
-- GitHub Actions billing issue selesai.
-- CI workflow hijau.
-- PostgreSQL staging validation hijau.
-- Backend API contract untuk dashboard role stabil.
-- Auth/session or token strategy untuk Next.js diputuskan.
-- Design tokens dari Flask shell final cukup untuk diport.
+- [ ] GitHub Actions billing issue selesai.
+- [ ] CI workflow hijau.
+- [ ] PostgreSQL staging validation hijau.
+- [x] Backend API contract untuk dashboard role stabil.
+- [x] Auth/session or token strategy untuk Next.js diputuskan.
+- [x] Design tokens dari Flask shell final cukup untuk diport.
+
+Implementation notes:
+
+- `scripts/frontend_readiness_gate.mjs` audits F0-F2 evidence, runs local commands, writes `artifacts/frontend-readiness/report.json`, and reports whether Next.js may start.
+- `npm run frontend:readiness` is the local non-strict readiness report command.
+- CI runs the readiness gate in strict mode only after PostgreSQL staging validation.
+- Current decision remains blocked because GitHub Actions billing and PostgreSQL staging validation are external gates.
+
+Auth/session strategy for Next.js:
+
+- Keep Flask shell session auth as the internal/staging control plane.
+- Build the future Next.js app as a customer-facing client using backend auth APIs and short-lived access tokens.
+- Do not trust frontend role claims; reload role and permission state from backend APIs.
+- Keep CSRF/session protection for Flask forms and use explicit API auth boundaries for Next.js.
 
 Decision options:
 

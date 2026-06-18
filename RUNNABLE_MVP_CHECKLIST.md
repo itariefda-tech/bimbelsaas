@@ -252,6 +252,8 @@ Verified on June 18, 2026:
 - [x] Baseline Phase F1 Flask shell polish diimplementasikan
 - [x] Role-specific dashboard sections tersedia
 - [x] UI screenshot/accessibility quality gates tersedia
+- [x] Phase F3 Next.js readiness gate tersedia
+- [ ] Phase F3 external blockers selesai
 
 ### Output
 
@@ -264,7 +266,8 @@ Completed on June 18, 2026:
 - `backend/app/templates/login.html` and `backend/app/templates/dashboard.html` now render a more polished control shell.
 - `scripts/ui_quality_gate.mjs` runs Playwright desktop/mobile E2E checks and writes UI artifacts.
 - `npm run ui:quality` passed locally and produced desktop/mobile login/dashboard screenshots.
-- Immediate next sprint: Phase F3 - Next.js readiness gate or Phase F5 role workflow expansion after staging confidence.
+- `scripts/frontend_readiness_gate.mjs` audits whether Next.js can safely start and writes `artifacts/frontend-readiness/report.json`.
+- Immediate next sprint: Resolve F3 external blockers or continue Phase F5 role workflow expansion inside Flask shell.
 
 ---
 

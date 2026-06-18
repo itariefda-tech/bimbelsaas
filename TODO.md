@@ -60,6 +60,10 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [x] Tambahkan accessibility baseline checks untuk label input, focus, overflow, dan button names.
 - [x] Tambahkan UI quality artifacts report di `artifacts/ui-quality/report.json`.
 - [x] Tambahkan `npm run ui:quality`.
+- [x] Implement Phase F3 Next.js readiness gate.
+- [x] Tambahkan `npm run frontend:readiness`.
+- [x] Tambahkan readiness report di `artifacts/frontend-readiness/report.json`.
+- [x] Dokumentasikan auth/session strategy untuk Next.js.
 
 ## Skipped / Deferred Items
 
@@ -83,6 +87,7 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [ ] Flask web shell masih minimal, sekarang menjadi target polish Phase F1.
 - [ ] Staging Docker/PostgreSQL/Redis belum divalidasi secara nyata di host ini karena Docker tidak tersedia; CI workflow sudah menyiapkan validasi dengan service Postgres/Redis.
 - [ ] GitHub Actions belum bisa hijau karena runner tidak start akibat billing issue, bukan karena test/code failure.
+- [ ] Phase F3 readiness gate implemented, tetapi keputusan mulai Next.js masih blocked oleh CI/staging eksternal.
 
 ## Next Actions
 
@@ -97,6 +102,8 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [x] Tambahkan role-specific dashboard sections untuk semua role.
 - [x] Tambahkan UI quality gates untuk desktop/mobile screenshot dan accessibility baseline.
 - [ ] Tambahkan production deployment checklist: secret management, Redis, rate limit, backup, monitoring, log retention, dan rollback.
+- [ ] Resolve external F3 blockers: GitHub Actions billing, CI green, PostgreSQL staging validation.
+- [ ] Setelah F3 unblocked, mulai Phase F4 Next.js App Foundation.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
 - [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.
 

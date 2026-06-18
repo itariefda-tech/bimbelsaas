@@ -779,6 +779,17 @@ The gate starts the Flask shell, performs a Playwright login/dashboard E2E
 check, captures desktop/mobile screenshots, and writes
 `artifacts/ui-quality/report.json`.
 
+Run the frontend readiness gate:
+
+```powershell
+npm run frontend:readiness
+```
+
+The readiness gate verifies F0-F2 evidence, reruns local frontend quality
+checks, and writes `artifacts/frontend-readiness/report.json`. It reports
+whether the customer-facing Next.js app may start or remains blocked by
+external CI/staging gates.
+
 Run PostgreSQL staging validation when PostgreSQL/Redis are available:
 
 ```powershell

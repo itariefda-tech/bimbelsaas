@@ -83,12 +83,27 @@ jobs:
           OBSERVABILITY_LOG_REQUESTS: "false"
         run: npm run ui:quality
 
+      - name: Run frontend readiness gate
+        env:
+          APP_ENV: development
+          DATABASE_URL: sqlite:///dev.db
+          OBSERVABILITY_LOG_REQUESTS: "false"
+          GITHUB_ACTIONS_GREEN: "true"
+        run: npm run frontend:readiness
+
       - name: Upload UI quality artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ui-quality
           path: artifacts/ui-quality
+
+      - name: Upload frontend readiness artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-readiness
+          path: artifacts/frontend-readiness
 
       - name: Validate PostgreSQL staging migrations
         env:
@@ -100,3 +115,20 @@ jobs:
           CACHE_ENABLED: "true"
           OBSERVABILITY_LOG_REQUESTS: "false"
         run: python scripts/validate_staging_postgres.py
+
+      - name: Run strict frontend readiness gate
+        env:
+          APP_ENV: development
+          DATABASE_URL: sqlite:///dev.db
+          OBSERVABILITY_LOG_REQUESTS: "false"
+          GITHUB_ACTIONS_GREEN: "true"
+          POSTGRES_STAGING_VALIDATED: "true"
+          FRONTEND_READINESS_STRICT: "true"
+        run: npm run frontend:readiness
+
+      - name: Upload final frontend readiness artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-readiness-final
+          path: artifacts/frontend-readiness
