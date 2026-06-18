@@ -51,9 +51,165 @@ class DashboardContext:
     role: Role
     role_label: str
     description: str
+    character: str
     academy_name: str
     branch_name: str
     branch_count: int
+    metrics: list[dict[str, str]]
+    focus_items: list[dict[str, str]]
+    quick_actions: list[str]
+    status_badge: str
+
+
+ROLE_UI = {
+    Role.PLATFORM_OWNER: {
+        "character": "Global SaaS command center",
+        "status_badge": "Platform ready",
+        "metrics": [
+            {"label": "Academy Scope", "value": "All academies", "tone": "navy"},
+            {"label": "Staging Gate", "value": "Billing blocked", "tone": "amber"},
+            {"label": "Runtime", "value": "Flask shell", "tone": "green"},
+            {"label": "Next Focus", "value": "CI unlock", "tone": "slate"},
+        ],
+        "focus_items": [
+            {
+                "title": "SaaS health",
+                "body": "Use this shell to confirm platform availability, environment readiness, and release blockers.",
+            },
+            {
+                "title": "Production gate",
+                "body": "CI billing and PostgreSQL staging validation remain the main external gates before customer-facing UI expansion.",
+            },
+        ],
+        "quick_actions": ["Review staging runbook", "Check CI blocker", "Prepare release checklist"],
+    },
+    Role.ACADEMY_DIRECTOR: {
+        "character": "Executive academy monitoring",
+        "status_badge": "Academy stable",
+        "metrics": [
+            {"label": "Academy", "value": "{academy_name}", "tone": "navy"},
+            {"label": "Branches", "value": "{branch_count}", "tone": "green"},
+            {"label": "Visibility", "value": "All branches", "tone": "slate"},
+            {"label": "Priority", "value": "Branch health", "tone": "amber"},
+        ],
+        "focus_items": [
+            {
+                "title": "Branch overview",
+                "body": "Monitor branch operations from a calm executive view before drilling into daily details.",
+            },
+            {
+                "title": "Operational alerts",
+                "body": "Revenue, attendance, teacher load, and schedule stability should become the director dashboard core.",
+            },
+        ],
+        "quick_actions": ["Review branch summary", "Compare branch health", "Check pending risks"],
+    },
+    Role.BRANCH_MANAGER: {
+        "character": "Branch operational control",
+        "status_badge": "Branch ready",
+        "metrics": [
+            {"label": "Branch", "value": "{branch_name}", "tone": "navy"},
+            {"label": "Schedule", "value": "Stable", "tone": "green"},
+            {"label": "Approvals", "value": "Review queue", "tone": "amber"},
+            {"label": "Scope", "value": "Branch team", "tone": "slate"},
+        ],
+        "focus_items": [
+            {
+                "title": "Today operations",
+                "body": "Keep schedule stability, teacher coverage, and parent-facing commitments visible.",
+            },
+            {
+                "title": "Approval flow",
+                "body": "Reschedule, attendance correction, and lesson summary correction queues should stay fast and auditable.",
+            },
+        ],
+        "quick_actions": ["Open today board", "Review approvals", "Check teacher load"],
+    },
+    Role.BRANCH_ADMIN: {
+        "character": "Fast operational workspace",
+        "status_badge": "Ops ready",
+        "metrics": [
+            {"label": "Branch", "value": "{branch_name}", "tone": "navy"},
+            {"label": "Search", "value": "Ready", "tone": "green"},
+            {"label": "Queue", "value": "Operational", "tone": "amber"},
+            {"label": "Mode", "value": "Fast admin", "tone": "slate"},
+        ],
+        "focus_items": [
+            {
+                "title": "Quick operations",
+                "body": "The admin shell should prioritize search, schedule edits, invoice support, and attendance support.",
+            },
+            {
+                "title": "Conflict prevention",
+                "body": "Surface schedule conflict indicators and missing operational data before they become parent-facing issues.",
+            },
+        ],
+        "quick_actions": ["Search student", "Manage schedule", "Check invoices"],
+    },
+    Role.TEACHER: {
+        "character": "Tactical daily workspace",
+        "status_badge": "Class day ready",
+        "metrics": [
+            {"label": "Today", "value": "Timeline", "tone": "navy"},
+            {"label": "Next Class", "value": "Focus", "tone": "green"},
+            {"label": "Materials", "value": "Ready queue", "tone": "slate"},
+            {"label": "Attendance", "value": "Shortcut", "tone": "amber"},
+        ],
+        "focus_items": [
+            {
+                "title": "Next class focus",
+                "body": "Teacher UI should start with what happens next, not with generic administration.",
+            },
+            {
+                "title": "Low-friction teaching",
+                "body": "Attendance, materials, and lesson summary actions should be reachable in one clear step.",
+            },
+        ],
+        "quick_actions": ["Open timeline", "Take attendance", "Write lesson summary"],
+    },
+    Role.PARENT: {
+        "character": "Premium monitoring experience",
+        "status_badge": "Child view ready",
+        "metrics": [
+            {"label": "Child", "value": "Linked profile", "tone": "navy"},
+            {"label": "Schedule", "value": "Transparent", "tone": "green"},
+            {"label": "Progress", "value": "Visible", "tone": "slate"},
+            {"label": "Trust", "value": "Calm updates", "tone": "amber"},
+        ],
+        "focus_items": [
+            {
+                "title": "Parent trust",
+                "body": "Parent UI should feel reassuring: schedule, attendance, progress, invoice, and lesson notes in plain language.",
+            },
+            {
+                "title": "Clear monitoring",
+                "body": "Prioritize readable activity history and calm notification hierarchy over dense admin controls.",
+            },
+        ],
+        "quick_actions": ["View child overview", "Check schedule", "Review invoices"],
+    },
+    Role.STUDENT: {
+        "character": "Simple learning workspace",
+        "status_badge": "Learning ready",
+        "metrics": [
+            {"label": "Schedule", "value": "Upcoming", "tone": "navy"},
+            {"label": "Materials", "value": "Available", "tone": "green"},
+            {"label": "Progress", "value": "Simple", "tone": "slate"},
+            {"label": "Focus", "value": "Learn next", "tone": "amber"},
+        ],
+        "focus_items": [
+            {
+                "title": "Learning clarity",
+                "body": "Student UI should show what to attend, what to study, and what changed.",
+            },
+            {
+                "title": "Simple actions",
+                "body": "Avoid finance-heavy or admin-heavy information in the student workspace.",
+            },
+        ],
+        "quick_actions": ["Check next class", "Open materials", "Review progress"],
+    },
+}
 
 
 def register_web(app: Flask) -> None:
@@ -257,7 +413,37 @@ def _dashboard_context(principal, role: Role) -> DashboardContext:
         role=role,
         role_label=ROLE_LABELS[role],
         description=ROLE_DESCRIPTIONS[role],
+        character=ROLE_UI[role]["character"],
         academy_name=academy.name if academy else "Platform Scope",
         branch_name=branch.name if branch else "All Branches",
         branch_count=branch_count,
+        metrics=_role_metrics(role, academy, branch, branch_count),
+        focus_items=ROLE_UI[role]["focus_items"],
+        quick_actions=ROLE_UI[role]["quick_actions"],
+        status_badge=ROLE_UI[role]["status_badge"],
     )
+
+
+def _role_metrics(
+    role: Role,
+    academy: Academy | None,
+    branch: Branch | None,
+    branch_count: int,
+) -> list[dict[str, str]]:
+    academy_name = academy.name if academy else "Platform Scope"
+    branch_name = branch.name if branch else "All Branches"
+    values = {
+        "academy_name": academy_name,
+        "branch_name": branch_name,
+        "branch_count": str(branch_count),
+    }
+    metrics = []
+    for metric in ROLE_UI[role]["metrics"]:
+        metrics.append(
+            {
+                "label": metric["label"],
+                "value": metric["value"].format(**values),
+                "tone": metric["tone"],
+            }
+        )
+    return metrics

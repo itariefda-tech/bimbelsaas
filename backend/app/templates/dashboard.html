@@ -4,50 +4,73 @@
 
 {% block content %}
   <div class="dashboard-layout">
-    <nav class="side-nav" aria-label="Role navigation">
-      {% for role in roles %}
-        <a class="{% if role == context.role %}active{% endif %}" href="{{ url_for('dashboard_role', role=role.value) }}">
-          {{ role_labels[role] }}
-        </a>
-      {% endfor %}
-    </nav>
+    <aside class="side-rail">
+      <div class="rail-card">
+        <span class="rail-label">Active workspace</span>
+        <strong>{{ context.role_label }}</strong>
+        <small>{{ context.character }}</small>
+      </div>
+      <nav class="side-nav" aria-label="Role navigation">
+        {% for role in roles %}
+          <a class="{% if role == context.role %}active{% endif %}" href="{{ url_for('dashboard_role', role=role.value) }}">
+            <span>{{ role_labels[role] }}</span>
+          </a>
+        {% endfor %}
+      </nav>
+    </aside>
 
     <section class="dashboard-content">
       <div class="dashboard-header">
         <div>
-          <p class="eyebrow">MVP Shell Active</p>
+          <p class="eyebrow">Production control shell</p>
           <h1>{{ context.role_label }} Dashboard</h1>
           <p class="lead">{{ context.description }}</p>
+          <span class="status-badge tone-green">{{ context.status_badge }}</span>
         </div>
         <div class="user-block">
           <strong>{{ user.full_name }}</strong>
           <span>{{ user.email }}</span>
+          <small>{{ context.academy_name }} / {{ context.branch_name }}</small>
         </div>
       </div>
 
       <div class="metric-grid">
-        <article class="metric-card">
-          <span>Academy</span>
-          <strong>{{ context.academy_name }}</strong>
-        </article>
-        <article class="metric-card">
-          <span>Branch Scope</span>
-          <strong>{{ context.branch_name }}</strong>
-        </article>
-        <article class="metric-card">
-          <span>Branches</span>
-          <strong>{{ context.branch_count }}</strong>
-        </article>
-        <article class="metric-card">
-          <span>Status</span>
-          <strong>Ready</strong>
-        </article>
+        {% for metric in context.metrics %}
+          <article class="metric-card metric-{{ metric.tone }}">
+            <span>{{ metric.label }}</span>
+            <strong>{{ metric.value }}</strong>
+          </article>
+        {% endfor %}
       </div>
 
-      <section class="work-panel">
-        <h2>Operational Scope</h2>
-        <p>Dashboard ini placeholder minimal berbasis role aktif dari database. Data operasional penuh tetap dilayani lewat API modular yang sudah ada.</p>
-      </section>
+      <div class="workspace-grid">
+        <section class="work-panel primary-work">
+          <div class="section-heading">
+            <p class="eyebrow">Role focus</p>
+            <h2>{{ context.character }}</h2>
+          </div>
+          <div class="focus-list">
+            {% for item in context.focus_items %}
+              <article class="focus-item">
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.body }}</p>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="work-panel action-panel">
+          <div class="section-heading">
+            <p class="eyebrow">Quick actions</p>
+            <h2>Next best moves</h2>
+          </div>
+          <div class="action-list">
+            {% for action in context.quick_actions %}
+              <button class="action-button" type="button">{{ action }}</button>
+            {% endfor %}
+          </div>
+        </section>
+      </div>
     </section>
   </div>
 {% endblock %}

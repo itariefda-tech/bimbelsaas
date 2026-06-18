@@ -51,6 +51,10 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [x] Tambahkan `backend/tests/test_web_security.py`.
 - [x] Putuskan frontend final strategy: polish Flask shell dulu, mulai Next.js setelah CI/staging hijau.
 - [x] Tambahkan `FRONTEND_UI_UX_ROADMAP.md`.
+- [x] Selesaikan Phase F0 frontend foundation lock.
+- [x] Implement baseline Phase F1 Flask shell polish.
+- [x] Tambahkan role-specific dashboard metrics, focus panels, dan quick actions.
+- [x] Tambahkan UI regression coverage untuk login foundation dan dashboard polish.
 
 ## Skipped / Deferred Items
 
@@ -84,8 +88,8 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [ ] Jalankan `python scripts/validate_staging_postgres.py` di mesin lokal/staging yang memiliki Docker atau PostgreSQL.
 - [x] Tambahkan command CLI resmi untuk `init-db`, `seed-demo`, dan `smoke-check`.
 - [x] Putuskan frontend final: lanjut polish Flask shell dulu, Next.js setelah CI/staging hijau.
-- [ ] Implement Phase F1 Flask shell polish dari `FRONTEND_UI_UX_ROADMAP.md`.
-- [ ] Tambahkan role-specific dashboard sections untuk semua role.
+- [x] Implement baseline Phase F1 Flask shell polish dari `FRONTEND_UI_UX_ROADMAP.md`.
+- [x] Tambahkan role-specific dashboard sections untuk semua role.
 - [ ] Tambahkan UI quality gates untuk desktop/mobile screenshot dan accessibility baseline.
 - [ ] Tambahkan production deployment checklist: secret management, Redis, rate limit, backup, monitoring, log retention, dan rollback.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.

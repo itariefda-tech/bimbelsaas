@@ -4,13 +4,22 @@
 
 {% block content %}
   <section class="login-panel">
-    <div>
-      <p class="eyebrow">Runnable MVP</p>
+    <div class="login-copy">
+      <p class="eyebrow">Secure operations shell</p>
       <h1>Premium Academic Operations</h1>
-      <p class="lead">Login demo untuk memastikan server, database, role, dan dashboard shell berjalan.</p>
+      <p class="lead">A calm role-based workspace for validating academy operations, staging readiness, and production controls.</p>
+      <div class="trust-strip" aria-label="Shell readiness">
+        <span>Role-aware</span>
+        <span>CSRF protected</span>
+        <span>Mobile ready</span>
+      </div>
     </div>
     <form class="auth-form" method="post" action="{{ url_for('login_submit') }}">
       <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <div class="form-heading">
+        <h2>Sign in</h2>
+        <p>Use an active demo or staging account.</p>
+      </div>
       <label>
         Email
         <input name="email" type="email" value="{{ email or ('owner@example.com' if demo_login_hints_enabled else '') }}" required autocomplete="email">

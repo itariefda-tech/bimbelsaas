@@ -24,6 +24,16 @@ def test_login_rejects_missing_csrf_token(client):
     assert response.status_code == 400
 
 
+def test_login_page_shows_frontend_foundation(client):
+    response = client.get("/login")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Secure operations shell" in body
+    assert "Role-aware" in body
+    assert "CSRF protected" in body
+
+
 def test_login_accepts_valid_csrf_token(client, create_identity):
     user, _ = create_identity(
         academy_id=None,
@@ -51,6 +61,39 @@ def test_login_accepts_valid_csrf_token(client, create_identity):
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/dashboard")
+
+
+def test_dashboard_shows_role_specific_polish(client, create_identity):
+    user, _ = create_identity(
+        academy_id=None,
+        email="polish-owner@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.PLATFORM_OWNER,
+                "scope_type": ScopeType.PLATFORM,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    response = client.get("/dashboard/platform_owner")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Global SaaS command center" in body
+    assert "Role focus" in body
+    assert "Quick actions" in body
+    assert "Review staging runbook" in body
 
 
 def test_session_cookie_security_defaults():

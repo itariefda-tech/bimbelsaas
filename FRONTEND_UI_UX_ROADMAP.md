@@ -28,7 +28,7 @@ Platform harus terasa:
 
 ## Phase F0 - Frontend Foundation Lock
 
-Status: in progress
+Status: completed
 
 Objective:
 
@@ -45,15 +45,20 @@ Deliverables:
 
 Acceptance criteria:
 
-- Semua warna utama terdokumentasi.
-- Tidak ada one-note palette.
-- Card radius tetap maksimal 8px.
-- Button, badge, input, message, layout, dan nav punya pola konsisten.
-- Mobile role navigation tidak overflow secara merusak.
+- [x] Semua warna utama terdokumentasi.
+- [x] Tidak ada one-note palette.
+- [x] Card radius tetap maksimal 8px.
+- [x] Button, badge, input, message, layout, dan nav punya pola konsisten.
+- [x] Mobile role navigation tidak overflow secara merusak.
+
+Implementation notes:
+
+- `backend/app/static/css/mvp.css` now contains the initial token system for surface, text, line, status, shadow, and role dashboard tones.
+- Flask templates use shared UI patterns for shell layout, login, role rail, metric cards, work panels, action buttons, messages, and errors.
 
 ## Phase F1 - Flask Shell Polish
 
-Status: next implementation
+Status: baseline implemented
 
 Objective:
 
@@ -89,12 +94,19 @@ Decor direction:
 
 Acceptance criteria:
 
-- `/login`, `/dashboard`, `/dashboard/<role>`, 403, and 404 feel coherent.
-- Each role dashboard has at least one role-specific primary section.
-- Mobile viewport does not require horizontal page scrolling.
-- Text does not overlap or overflow controls.
-- `python scripts/manage.py smoke-check` passes.
-- `python -m pytest -q` passes.
+- [x] `/login`, `/dashboard`, `/dashboard/<role>`, 403, and 404 feel coherent.
+- [x] Each role dashboard has at least one role-specific primary section.
+- [x] Mobile viewport does not require horizontal page scrolling.
+- [x] Text does not overlap or overflow controls.
+- [x] `python scripts/manage.py smoke-check` passes.
+- [x] `python -m pytest -q` passes after this phase.
+
+Implementation notes:
+
+- `backend/app/web.py` now builds role-specific dashboard context for metrics, role focus, quick actions, and status badges.
+- `backend/app/templates/dashboard.html` renders a role-aware production control shell.
+- `backend/app/templates/login.html` now presents the shell as a secure operations entry point.
+- `backend/tests/test_web_security.py` includes coverage for the login foundation and role-specific dashboard polish.
 
 ## Phase F2 - Frontend Quality Gates
 
