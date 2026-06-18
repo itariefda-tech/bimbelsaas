@@ -11,6 +11,7 @@
       <a class="brand" href="{{ url_for('dashboard') }}">BimbelSaaS</a>
       {% if user %}
         <form method="post" action="{{ url_for('logout') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
           <button class="ghost-button" type="submit">Logout</button>
         </form>
       {% endif %}

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -82,14 +83,21 @@ def smoke_check(args: argparse.Namespace) -> int:
     app = create_app()
     client = app.test_client()
 
+    login_page = client.get("/login")
+    csrf = _extract_csrf(login_page.get_data(as_text=True))
     checks = [
         _check_status("GET /health", client.get("/health"), 200),
-        _check_status("GET /login", client.get("/login"), 200),
+        _check_status("GET /login", login_page, 200),
+        {"name": "login csrf token present", "ok": bool(csrf)},
     ]
 
     login = client.post(
         "/login",
-        data={"email": args.email, "password": args.password},
+        data={
+            "email": args.email,
+            "password": args.password,
+            "_csrf_token": csrf,
+        },
         follow_redirects=False,
     )
     checks.append(_check_status("POST /login", login, 302))
@@ -121,6 +129,11 @@ def _check_status(name: str, response, expected_status: int) -> dict[str, object
         "actual_status": response.status_code,
         "ok": response.status_code == expected_status,
     }
+
+
+def _extract_csrf(html: str) -> str:
+    match = re.search(r'name="_csrf_token" value="([^"]+)"', html)
+    return match.group(1) if match else ""
 
 
 if __name__ == "__main__":

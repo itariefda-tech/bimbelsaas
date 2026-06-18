@@ -39,6 +39,11 @@ class Config:
     OBSERVABILITY_LOG_REQUESTS = (
         os.getenv("OBSERVABILITY_LOG_REQUESTS", "true").lower() == "true"
     )
+    DEMO_LOGIN_HINTS_ENABLED = (
+        os.getenv("DEMO_LOGIN_HINTS_ENABLED", "true").lower() == "true"
+    )
+    DEMO_SEED_ENABLED = os.getenv("DEMO_SEED_ENABLED", "true").lower() == "true"
+    DEMO_PASSWORD = os.getenv("DEMO_PASSWORD", "password123")
     SQLALCHEMY_DATABASE_URI = _normalize_database_url(
         os.getenv(
             "DATABASE_URL",
@@ -47,6 +52,9 @@ class Config:
     )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = _engine_options(SQLALCHEMY_DATABASE_URI)
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true"
     JSON_SORT_KEYS = False
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
     JWT_ALGORITHM = "HS256"
@@ -96,6 +104,8 @@ class ProductionConfig(Config):
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     PREFERRED_URL_SCHEME = "https"
+    DEMO_LOGIN_HINTS_ENABLED = False
+    DEMO_SEED_ENABLED = False
 
     @classmethod
     def validate(cls) -> None:
@@ -117,10 +127,16 @@ class ProductionConfig(Config):
             raise RuntimeError("Production DATABASE_URL must not use SQLite.")
         if not cls.REDIS_URL:
             raise RuntimeError("REDIS_URL must be configured for production.")
+        if cls.DEMO_LOGIN_HINTS_ENABLED:
+            raise RuntimeError("DEMO_LOGIN_HINTS_ENABLED must be false for production.")
+        if cls.DEMO_SEED_ENABLED:
+            raise RuntimeError("DEMO_SEED_ENABLED must be false for production.")
 
 
 class StagingConfig(ProductionConfig):
     BETA_LAUNCH_ENABLED = True
+    DEMO_LOGIN_HINTS_ENABLED = False
+    DEMO_SEED_ENABLED = False
 
 
 def get_config() -> type[Config]:

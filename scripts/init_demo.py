@@ -32,6 +32,13 @@ DEMO_BRANCH_CODE = "MAIN"
 
 def main() -> None:
     app = create_app()
+    if not app.config["DEMO_SEED_ENABLED"]:
+        raise RuntimeError(
+            "Demo seeding is disabled for this environment. "
+            "Set APP_ENV=development or enable DEMO_SEED_ENABLED only in a safe sandbox."
+        )
+    global PASSWORD
+    PASSWORD = app.config["DEMO_PASSWORD"]
     with app.app_context():
         db.create_all()
         academy = _academy()

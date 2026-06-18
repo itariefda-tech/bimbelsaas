@@ -730,6 +730,14 @@ Authorization rules:
 * backend routes use centralized permission grants and scoped authorization
   decorators.
 
+Web security baseline:
+
+* login and logout forms require per-session CSRF tokens,
+* session cookies default to `HttpOnly` and `SameSite=Lax`,
+* production and staging disable demo login hints and demo seeding,
+* demo credentials are development-only and configurable through environment
+  variables.
+
 Run backend checks:
 
 ```powershell

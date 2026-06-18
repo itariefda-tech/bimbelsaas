@@ -10,13 +10,14 @@
       <p class="lead">Login demo untuk memastikan server, database, role, dan dashboard shell berjalan.</p>
     </div>
     <form class="auth-form" method="post" action="{{ url_for('login_submit') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
       <label>
         Email
-        <input name="email" type="email" value="{{ email or 'owner@example.com' }}" required autocomplete="email">
+        <input name="email" type="email" value="{{ email or ('owner@example.com' if demo_login_hints_enabled else '') }}" required autocomplete="email">
       </label>
       <label>
         Password
-        <input name="password" type="password" value="password123" required autocomplete="current-password">
+        <input name="password" type="password" value="{{ demo_password if demo_login_hints_enabled else '' }}" required autocomplete="current-password">
       </label>
       <button class="primary-button" type="submit">Login</button>
     </form>

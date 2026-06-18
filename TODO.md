@@ -41,6 +41,14 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
 - [x] Tambahkan validasi CLI lokal ke GitHub Actions.
 - [x] Push commit `9e35eae` ke `origin/main`.
 - [x] Cek GitHub Actions run `27768742612`.
+- [x] Cek GitHub Actions run `27768880118` untuk commit `dd0de21`.
+- [x] Tambahkan CSRF token per session untuk login form.
+- [x] Tambahkan CSRF token per session untuk logout form.
+- [x] Tambahkan default session cookie `HttpOnly` dan `SameSite=Lax`.
+- [x] Tambahkan production/staging guard untuk mematikan demo login hints dan demo seed.
+- [x] Jadikan demo password bisa dikonfigurasi via environment.
+- [x] Update smoke-check CLI agar mengikuti CSRF login flow.
+- [x] Tambahkan `backend/tests/test_web_security.py`.
 
 ## Skipped / Deferred Items
 
@@ -76,7 +84,7 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
 - [ ] Putuskan frontend final: lanjut Flask shell sebagai admin MVP atau mulai Next.js app.
 - [ ] Tambahkan production deployment checklist: secret management, Redis, rate limit, backup, monitoring, log retention, dan rollback.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
-- [ ] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.
+- [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.
 
 ## Recovery Notes
 

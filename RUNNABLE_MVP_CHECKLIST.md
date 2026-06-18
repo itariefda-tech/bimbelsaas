@@ -211,6 +211,38 @@ Local limitation:
 
 ---
 
+## Phase J - Web Security Hardening
+
+- [x] Login form memakai CSRF token per session
+- [x] Logout form memakai CSRF token per session
+- [x] POST login tanpa CSRF ditolak
+- [x] Session cookie default `HttpOnly`
+- [x] Session cookie default `SameSite=Lax`
+- [x] Production/staging mematikan demo login hints
+- [x] Production/staging mematikan demo seed
+- [x] Demo password bisa dikonfigurasi via environment
+- [x] Smoke-check CLI mendukung CSRF flow
+- [x] Test web security tersedia
+
+### Output
+
+Completed on June 18, 2026:
+- `backend/app/web.py` validates CSRF tokens for `/login` and `/logout`.
+- `backend/app/templates/login.html` and `backend/app/templates/base.html` include CSRF hidden fields.
+- `backend/app/config.py` sets safer session cookie defaults and rejects demo mode in production.
+- `scripts/init_demo.py` refuses demo seeding when `DEMO_SEED_ENABLED` is disabled.
+- `scripts/manage.py smoke-check` now performs a browser-like CSRF login flow.
+- `backend/tests/test_web_security.py` verifies CSRF rejection, valid CSRF login, cookie defaults, and production demo guardrails.
+
+Verified on June 18, 2026:
+- `python -m compileall app.py backend/app backend/tests backend/migrations scripts` passed.
+- `python scripts/manage.py seed-demo` passed.
+- `python scripts/manage.py smoke-check` passed.
+- `python -m pytest backend/tests/test_web_security.py -q` passed.
+- `python -m pytest -q` passed.
+
+---
+
 ## Skipped / Deferred
 
 Format:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hmac
+import secrets
 from dataclasses import dataclass
 
 from flask import (
@@ -20,6 +22,8 @@ from app.models.user import User
 from app.permissions.constants import Role
 from app.services.auth_service import AuthService
 
+
+CSRF_SESSION_KEY = "_csrf_token"
 
 ROLE_LABELS = {
     Role.PLATFORM_OWNER: "Platform Owner",
@@ -53,6 +57,14 @@ class DashboardContext:
 
 
 def register_web(app: Flask) -> None:
+    @app.context_processor
+    def inject_security_helpers():
+        return {
+            "csrf_token": _csrf_token,
+            "demo_login_hints_enabled": app.config["DEMO_LOGIN_HINTS_ENABLED"],
+            "demo_password": app.config["DEMO_PASSWORD"],
+        }
+
     @app.get("/")
     def index():
         if _current_principal() is not None:
@@ -76,6 +88,9 @@ def register_web(app: Flask) -> None:
     def login_submit():
         email = request.form.get("email", "")
         password = request.form.get("password", "")
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang halaman login.", "error")
+            return render_template("login.html", email=email), 400
         try:
             auth_payload = _web_login(email=email, password=password)
         except AuthenticationError:
@@ -89,6 +104,8 @@ def register_web(app: Flask) -> None:
 
     @app.post("/logout")
     def logout():
+        if not _validate_csrf():
+            return render_template("error.html", status_code=400), 400
         principal = _current_principal()
         if principal is not None:
             AuthService().logout(principal)
@@ -142,6 +159,24 @@ def register_web(app: Flask) -> None:
                 status=500,
             )
         return render_template("error.html", status_code=500), 500
+
+
+def _csrf_token() -> str:
+    token = session.get(CSRF_SESSION_KEY)
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session[CSRF_SESSION_KEY] = token
+    return token
+
+
+def _validate_csrf() -> bool:
+    token = session.get(CSRF_SESSION_KEY)
+    submitted = request.form.get(CSRF_SESSION_KEY, "")
+    return bool(
+        token
+        and submitted
+        and hmac.compare_digest(str(token), submitted)
+    )
 
 
 def _current_principal():
