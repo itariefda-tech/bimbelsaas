@@ -254,6 +254,7 @@ Verified on June 18, 2026:
 - [x] UI screenshot/accessibility quality gates tersedia
 - [x] Phase F3 Next.js readiness gate tersedia
 - [ ] Phase F3 external blockers selesai
+- [x] Phase F5 Teacher daily workflow baseline tersedia
 
 ### Output
 
@@ -267,7 +268,8 @@ Completed on June 18, 2026:
 - `scripts/ui_quality_gate.mjs` runs Playwright desktop/mobile E2E checks and writes UI artifacts.
 - `npm run ui:quality` passed locally and produced desktop/mobile login/dashboard screenshots.
 - `scripts/frontend_readiness_gate.mjs` audits whether Next.js can safely start and writes `artifacts/frontend-readiness/report.json`.
-- Immediate next sprint: Resolve F3 external blockers or continue Phase F5 role workflow expansion inside Flask shell.
+- Teacher dashboard now includes a daily workflow panel for next class, attendance, and lesson summary.
+- Immediate next sprint: Phase F5 Parent monitoring workflow or resolve F3 external blockers.
 
 ---
 

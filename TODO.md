@@ -64,6 +64,9 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [x] Tambahkan `npm run frontend:readiness`.
 - [x] Tambahkan readiness report di `artifacts/frontend-readiness/report.json`.
 - [x] Dokumentasikan auth/session strategy untuk Next.js.
+- [x] Mulai Phase F5 role workflow expansion.
+- [x] Implement baseline Teacher daily workflow panel di Flask dashboard.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk Teacher dashboard.
 
 ## Skipped / Deferred Items
 
@@ -104,6 +107,7 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [ ] Tambahkan production deployment checklist: secret management, Redis, rate limit, backup, monitoring, log retention, dan rollback.
 - [ ] Resolve external F3 blockers: GitHub Actions billing, CI green, PostgreSQL staging validation.
 - [ ] Setelah F3 unblocked, mulai Phase F4 Next.js App Foundation.
+- [ ] Lanjutkan Phase F5 Parent monitoring workflow.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
 - [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.
 

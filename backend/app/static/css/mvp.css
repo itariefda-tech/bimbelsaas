@@ -421,6 +421,45 @@ input:focus {
   background: var(--emerald-soft);
 }
 
+.workflow-panel {
+  margin-top: 16px;
+}
+
+.workflow-list {
+  display: grid;
+  gap: 10px;
+}
+
+.workflow-item {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) 92px;
+  gap: 14px;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.workflow-item span,
+.workflow-item strong {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.workflow-item p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.workflow-item strong {
+  justify-self: end;
+  color: var(--emerald);
+}
+
 .messages {
   margin-bottom: 16px;
 }
@@ -443,7 +482,8 @@ input:focus {
   .dashboard-layout,
   .dashboard-header,
   .metric-grid,
-  .workspace-grid {
+  .workspace-grid,
+  .workflow-item {
     grid-template-columns: 1fr;
   }
 
@@ -469,6 +509,10 @@ input:focus {
   .user-block {
     min-width: 0;
     text-align: left;
+  }
+
+  .workflow-item strong {
+    justify-self: start;
   }
 
   h1 {

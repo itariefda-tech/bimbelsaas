@@ -8,6 +8,7 @@ const baseURL = `http://127.0.0.1:${port}`;
 const artifactDir = join(process.cwd(), "artifacts", "ui-quality");
 const demoEmail = process.env.UI_QUALITY_EMAIL || "owner@example.com";
 const demoPassword = process.env.UI_QUALITY_PASSWORD || "password123";
+const teacherEmail = process.env.UI_QUALITY_TEACHER_EMAIL || "teacher@example.com";
 
 const serverEnv = {
   ...process.env,
@@ -63,6 +64,18 @@ try {
       height: 844,
       isMobile: true,
     });
+    await runTeacherViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+    });
+    await runTeacherViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+    });
   } finally {
     await browser.close();
   }
@@ -87,6 +100,30 @@ try {
   }
 } finally {
   server.kill();
+}
+
+async function runTeacherViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${baseURL}/login`, { waitUntil: "networkidle" });
+    await page.fill('input[name="email"]', teacherEmail);
+    await page.fill('input[name="password"]', demoPassword);
+    await page.click('button[type="submit"]');
+    await page.waitForURL("**/dashboard/**");
+    await expectText(page, "Teacher Dashboard", `${viewport.name} teacher dashboard title`);
+    await expectText(page, "Today teaching flow", `${viewport.name} teacher workflow`);
+    await expectText(page, "Next class", `${viewport.name} teacher next class`);
+    await expectText(page, "Lesson summary", `${viewport.name} teacher lesson summary`);
+    await expectNoHorizontalOverflow(page, `${viewport.name} teacher dashboard overflow`);
+    await expectNamedButtons(page, `${viewport.name} teacher dashboard buttons`);
+    await capture(page, `${viewport.name}-teacher-dashboard.png`);
+  } finally {
+    await context.close();
+  }
 }
 
 async function runViewport(browser, viewport) {

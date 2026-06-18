@@ -71,6 +71,25 @@
           </div>
         </section>
       </div>
+
+      <section class="work-panel workflow-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Workflow</p>
+          <h2>{{ context.workflow_title }}</h2>
+        </div>
+        <div class="workflow-list">
+          {% for item in context.workflow_items %}
+            <article class="workflow-item">
+              <span>{{ item.label }}</span>
+              <div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.body }}</p>
+              </div>
+              <strong>{{ item.status }}</strong>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
     </section>
   </div>
 {% endblock %}

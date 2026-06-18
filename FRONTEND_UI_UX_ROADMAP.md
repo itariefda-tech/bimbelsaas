@@ -206,7 +206,7 @@ Acceptance criteria:
 
 ## Phase F5 - Role Workflow Expansion
 
-Status: future
+Status: in progress
 
 Objective:
 
@@ -214,7 +214,7 @@ Membuat UI bukan hanya dashboard, tapi workflow utama yang usable.
 
 Priority order:
 
-1. Teacher daily workflow.
+1. Teacher daily workflow. - baseline implemented in Flask shell
 2. Parent monitoring workflow.
 3. Branch admin operational workflow.
 4. Branch manager approval workflow.
@@ -232,6 +232,12 @@ Deliverables per workflow:
 - Loading/skeleton state.
 - Mobile state.
 - Permission denied state.
+
+Implementation notes:
+
+- Teacher dashboard now includes a `Today teaching flow` panel with next class, attendance, and lesson summary steps.
+- `npm run ui:quality` captures teacher dashboard screenshots in desktop and mobile viewports.
+- `backend/tests/test_web_security.py` includes server-side coverage for the teacher daily workflow panel.
 
 ## Phase F6 - Production Visual QA
 

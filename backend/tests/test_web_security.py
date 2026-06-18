@@ -1,3 +1,5 @@
+from uuid import uuid4
+
 from app import create_app
 from app.config import ProductionConfig
 from app.extensions import db
@@ -94,6 +96,40 @@ def test_dashboard_shows_role_specific_polish(client, create_identity):
     assert "Role focus" in body
     assert "Quick actions" in body
     assert "Review staging runbook" in body
+
+
+def test_teacher_dashboard_shows_daily_workflow(client, create_identity, academy_id):
+    user, _ = create_identity(
+        academy_id=academy_id,
+        email="polish-teacher@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.TEACHER,
+                "scope_type": ScopeType.ASSIGNED_CLASS,
+                "scope_id": uuid4(),
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    response = client.get("/dashboard/teacher")
+    body = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "Teacher Dashboard" in body
+    assert "Today teaching flow" in body
+    assert "Next class" in body
+    assert "Lesson summary" in body
 
 
 def test_session_cookie_security_defaults():

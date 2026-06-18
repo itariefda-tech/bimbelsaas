@@ -59,6 +59,8 @@ class DashboardContext:
     focus_items: list[dict[str, str]]
     quick_actions: list[str]
     status_badge: str
+    workflow_title: str
+    workflow_items: list[dict[str, str]]
 
 
 ROLE_UI = {
@@ -166,6 +168,27 @@ ROLE_UI = {
             },
         ],
         "quick_actions": ["Open timeline", "Take attendance", "Write lesson summary"],
+        "workflow_title": "Today teaching flow",
+        "workflow_items": [
+            {
+                "label": "Next class",
+                "title": "Start from the next scheduled session",
+                "body": "Review class, branch, room, and material readiness before opening attendance.",
+                "status": "Primary",
+            },
+            {
+                "label": "Attendance",
+                "title": "Record attendance during class",
+                "body": "Keep draft attendance lightweight, then finalize once the roster is complete.",
+                "status": "Shortcut",
+            },
+            {
+                "label": "Lesson summary",
+                "title": "Publish a clear parent-facing summary",
+                "body": "Capture topic, class summary, homework, and attention notes after the session.",
+                "status": "After class",
+            },
+        ],
     },
     Role.PARENT: {
         "character": "Premium monitoring experience",
@@ -187,6 +210,21 @@ ROLE_UI = {
             },
         ],
         "quick_actions": ["View child overview", "Check schedule", "Review invoices"],
+        "workflow_title": "Monitoring flow",
+        "workflow_items": [
+            {
+                "label": "Child overview",
+                "title": "Start with current learning status",
+                "body": "Surface attendance, schedule, and lesson summary in one calm parent view.",
+                "status": "Primary",
+            },
+            {
+                "label": "Schedule",
+                "title": "Keep upcoming sessions transparent",
+                "body": "Show cancellations and reschedules clearly so parents never guess.",
+                "status": "Trust",
+            },
+        ],
     },
     Role.STUDENT: {
         "character": "Simple learning workspace",
@@ -208,8 +246,32 @@ ROLE_UI = {
             },
         ],
         "quick_actions": ["Check next class", "Open materials", "Review progress"],
+        "workflow_title": "Learning flow",
+        "workflow_items": [
+            {
+                "label": "Next class",
+                "title": "Know what comes next",
+                "body": "Keep schedule and materials simple, clear, and distraction-free.",
+                "status": "Primary",
+            },
+        ],
     },
 }
+
+
+for role, config in ROLE_UI.items():
+    config.setdefault("workflow_title", "Operational flow")
+    config.setdefault(
+        "workflow_items",
+        [
+            {
+                "label": "Control",
+                "title": config["character"],
+                "body": "Use this control shell to inspect the role scope and prepare the next production workflow.",
+                "status": "Ready",
+            },
+        ],
+    )
 
 
 def register_web(app: Flask) -> None:
@@ -421,6 +483,8 @@ def _dashboard_context(principal, role: Role) -> DashboardContext:
         focus_items=ROLE_UI[role]["focus_items"],
         quick_actions=ROLE_UI[role]["quick_actions"],
         status_badge=ROLE_UI[role]["status_badge"],
+        workflow_title=ROLE_UI[role]["workflow_title"],
+        workflow_items=ROLE_UI[role]["workflow_items"],
     )
 
 
