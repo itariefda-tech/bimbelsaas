@@ -110,7 +110,7 @@ Implementation notes:
 
 ## Phase F2 - Frontend Quality Gates
 
-Status: planned
+Status: completed
 
 Objective:
 
@@ -118,18 +118,24 @@ Menambahkan guard agar UI polish tidak regresi.
 
 Deliverables:
 
-- Playwright smoke test untuk login dan dashboard.
-- Screenshot checks desktop/mobile.
-- Accessibility baseline checks.
-- Contrast review for tokens and status badges.
-- Form state checks: default, invalid CSRF, invalid login, success login.
+- [x] Playwright smoke test untuk login dan dashboard.
+- [x] Screenshot checks desktop/mobile.
+- [x] Accessibility baseline checks.
+- [x] Contrast review for tokens and status badges.
+- [x] Form state checks: default, invalid CSRF, invalid login, success login.
 
 Acceptance criteria:
 
-- Desktop and mobile screenshots are nonblank and visually stable.
-- Login and dashboard E2E pass locally.
-- Critical keyboard navigation works.
-- Buttons and links have visible focus states.
+- [x] Desktop and mobile screenshots are nonblank and visually stable.
+- [x] Login and dashboard E2E pass locally.
+- [x] Critical keyboard navigation works.
+- [x] Buttons and links have visible focus states.
+
+Implementation notes:
+
+- `scripts/ui_quality_gate.mjs` seeds demo data, starts Flask without the development reloader, runs Playwright against desktop and mobile viewports, saves screenshots, and writes `artifacts/ui-quality/report.json`.
+- `npm run ui:quality` is the official local command.
+- CI now installs Playwright Chromium, runs the UI gate, and uploads `artifacts/ui-quality`.
 
 ## Phase F3 - Next.js Readiness Gate
 

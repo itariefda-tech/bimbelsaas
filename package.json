@@ -9,6 +9,10 @@
     "init-db": "python scripts/manage.py init-db",
     "seed-demo": "python scripts/manage.py seed-demo",
     "smoke-check": "python scripts/manage.py smoke-check",
+    "ui:quality": "node scripts/ui_quality_gate.mjs",
     "staging:validate": "python scripts/validate_staging_postgres.py"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0"
   }
 }

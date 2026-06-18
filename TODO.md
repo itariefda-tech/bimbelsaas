@@ -55,6 +55,11 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [x] Implement baseline Phase F1 Flask shell polish.
 - [x] Tambahkan role-specific dashboard metrics, focus panels, dan quick actions.
 - [x] Tambahkan UI regression coverage untuk login foundation dan dashboard polish.
+- [x] Implement Phase F2 UI quality gate dengan Playwright.
+- [x] Tambahkan screenshot desktop/mobile untuk login dan dashboard.
+- [x] Tambahkan accessibility baseline checks untuk label input, focus, overflow, dan button names.
+- [x] Tambahkan UI quality artifacts report di `artifacts/ui-quality/report.json`.
+- [x] Tambahkan `npm run ui:quality`.
 
 ## Skipped / Deferred Items
 
@@ -90,7 +95,7 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [x] Putuskan frontend final: lanjut polish Flask shell dulu, Next.js setelah CI/staging hijau.
 - [x] Implement baseline Phase F1 Flask shell polish dari `FRONTEND_UI_UX_ROADMAP.md`.
 - [x] Tambahkan role-specific dashboard sections untuk semua role.
-- [ ] Tambahkan UI quality gates untuk desktop/mobile screenshot dan accessibility baseline.
+- [x] Tambahkan UI quality gates untuk desktop/mobile screenshot dan accessibility baseline.
 - [ ] Tambahkan production deployment checklist: secret management, Redis, rate limit, backup, monitoring, log retention, dan rollback.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
 - [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.

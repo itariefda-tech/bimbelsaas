@@ -769,6 +769,16 @@ npm run seed-demo
 npm run smoke-check
 ```
 
+Run the UI quality gate:
+
+```powershell
+npm run ui:quality
+```
+
+The gate starts the Flask shell, performs a Playwright login/dashboard E2E
+check, captures desktop/mobile screenshots, and writes
+`artifacts/ui-quality/report.json`.
+
 Run PostgreSQL staging validation when PostgreSQL/Redis are available:
 
 ```powershell

@@ -251,7 +251,7 @@ Verified on June 18, 2026:
 - [x] Phase F0 frontend foundation lock selesai
 - [x] Baseline Phase F1 Flask shell polish diimplementasikan
 - [x] Role-specific dashboard sections tersedia
-- [ ] UI screenshot/accessibility quality gates tersedia
+- [x] UI screenshot/accessibility quality gates tersedia
 
 ### Output
 
@@ -262,7 +262,9 @@ Completed on June 18, 2026:
 - `backend/app/static/css/mvp.css` now defines the first UI token and shell styling baseline.
 - `backend/app/web.py` now provides role-specific dashboard metrics, focus panels, quick actions, and status badges.
 - `backend/app/templates/login.html` and `backend/app/templates/dashboard.html` now render a more polished control shell.
-- Immediate next sprint: Phase F2 - UI quality gates.
+- `scripts/ui_quality_gate.mjs` runs Playwright desktop/mobile E2E checks and writes UI artifacts.
+- `npm run ui:quality` passed locally and produced desktop/mobile login/dashboard screenshots.
+- Immediate next sprint: Phase F3 - Next.js readiness gate or Phase F5 role workflow expansion after staging confidence.
 
 ---
 
