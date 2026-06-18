@@ -39,6 +39,8 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
 - [x] Tambahkan CLI resmi `python scripts/manage.py smoke-check`.
 - [x] Tambahkan npm wrapper `init-db`, `seed-demo`, dan `smoke-check`.
 - [x] Tambahkan validasi CLI lokal ke GitHub Actions.
+- [x] Push commit `9e35eae` ke `origin/main`.
+- [x] Cek GitHub Actions run `27768742612`.
 
 ## Skipped / Deferred Items
 
@@ -46,6 +48,10 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
   - Reason: Docker/PostgreSQL CLI tidak tersedia di host ini, jadi validasi nyata lokal belum bisa dijalankan.
   - Depends on: Docker Desktop atau PostgreSQL service jika ingin mode production-like.
   - Target: Staging/infrastructure validation.
+- [ ] GitHub Actions runner execution.
+  - Reason: GitHub reported: "The job was not started because your account is locked due to a billing issue."
+  - Depends on: GitHub account/repository billing unlock.
+  - Target: CI validation.
 - [ ] Frontend Next.js penuh.
   - Reason: Repository saat ini backend/API; MVP hanya butuh Flask web shell minimal.
   - Depends on: Keputusan frontend app.
@@ -57,6 +63,7 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
 - [ ] SQLite local dev memakai `db.create_all()` untuk recovery MVP; staging/production tetap perlu validasi migration chain PostgreSQL.
 - [ ] Flask web shell masih minimal, bukan frontend produk final.
 - [ ] Staging Docker/PostgreSQL/Redis belum divalidasi secara nyata di host ini karena Docker tidak tersedia; CI workflow sudah menyiapkan validasi dengan service Postgres/Redis.
+- [ ] GitHub Actions belum bisa hijau karena runner tidak start akibat billing issue, bukan karena test/code failure.
 
 ## Next Actions
 

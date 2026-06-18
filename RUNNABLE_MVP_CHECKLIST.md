@@ -190,6 +190,7 @@ Verified on June 18, 2026:
 - [x] CLI resmi `smoke-check` tersedia
 - [x] Runbook staging diperbarui
 - [ ] Validasi PostgreSQL staging dijalankan di host lokal/staging nyata
+- [ ] GitHub Actions runner berhasil dijalankan setelah billing issue selesai
 
 ### Output
 
@@ -200,10 +201,13 @@ Completed on June 18, 2026:
 - npm wrappers are available: `npm run init-db`, `npm run seed-demo`, and `npm run smoke-check`.
 - `npm run staging:validate` wraps the staging validation script.
 - `STAGING_RUNBOOK.md` documents the repeatable staging validation flow.
+- Commit `9e35eae` was pushed to `origin/main`.
+- GitHub Actions run `27768742612` was created for the pushed commit.
 
 Local limitation:
 - Docker is not installed on this host, so the PostgreSQL/Redis service validation could not be executed locally.
 - The script was compile-checked and verified to reject non-PostgreSQL `DATABASE_URL`.
+- GitHub Actions did not start the job because GitHub reported an account billing issue, so the runner could not prove the workflow yet.
 
 ---
 
