@@ -2,15 +2,15 @@
 
 ## Current Focus
 
-Production Readiness
+Frontend Final UI/UX
 
 ## Current Phase
 
-Post-Recovery Stabilization
+Phase F1 - Flask Shell Polish
 
 ## Current Task
 
-Memperkuat Runnable MVP menuju staging dan production readiness: migration validation, full test stabilization, CI, frontend decision, deployment, observability, dan security hardening.
+Memoles Flask shell sebagai production control shell sambil menunda Next.js app sampai CI runner dan PostgreSQL staging validation hijau.
 
 ## Completed In This Session
 
@@ -49,6 +49,8 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
 - [x] Jadikan demo password bisa dikonfigurasi via environment.
 - [x] Update smoke-check CLI agar mengikuti CSRF login flow.
 - [x] Tambahkan `backend/tests/test_web_security.py`.
+- [x] Putuskan frontend final strategy: polish Flask shell dulu, mulai Next.js setelah CI/staging hijau.
+- [x] Tambahkan `FRONTEND_UI_UX_ROADMAP.md`.
 
 ## Skipped / Deferred Items
 
@@ -61,15 +63,15 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
   - Depends on: GitHub account/repository billing unlock.
   - Target: CI validation.
 - [ ] Frontend Next.js penuh.
-  - Reason: Repository saat ini backend/API; MVP hanya butuh Flask web shell minimal.
-  - Depends on: Keputusan frontend app.
-  - Target: Frontend implementation follow-up.
+  - Reason: Diputuskan menjadi fase berikutnya setelah CI runner dan PostgreSQL staging validation hijau.
+  - Depends on: Billing GitHub selesai, CI hijau, staging PostgreSQL/Redis tervalidasi.
+  - Target: Customer-facing production app.
 
 ## Known Issues
 
 - [ ] Full `python -m pytest -q` lulus, tetapi butuh sekitar 3 menit 15 detik pada host ini; CI perlu timeout realistis atau profiling untuk mempercepat.
 - [ ] SQLite local dev memakai `db.create_all()` untuk recovery MVP; staging/production tetap perlu validasi migration chain PostgreSQL.
-- [ ] Flask web shell masih minimal, bukan frontend produk final.
+- [ ] Flask web shell masih minimal, sekarang menjadi target polish Phase F1.
 - [ ] Staging Docker/PostgreSQL/Redis belum divalidasi secara nyata di host ini karena Docker tidak tersedia; CI workflow sudah menyiapkan validasi dengan service Postgres/Redis.
 - [ ] GitHub Actions belum bisa hijau karena runner tidak start akibat billing issue, bukan karena test/code failure.
 
@@ -81,7 +83,10 @@ Memperkuat Runnable MVP menuju staging dan production readiness: migration valid
 - [ ] Jalankan workflow CI di GitHub dan pastikan service Postgres/Redis lulus pada runner.
 - [ ] Jalankan `python scripts/validate_staging_postgres.py` di mesin lokal/staging yang memiliki Docker atau PostgreSQL.
 - [x] Tambahkan command CLI resmi untuk `init-db`, `seed-demo`, dan `smoke-check`.
-- [ ] Putuskan frontend final: lanjut Flask shell sebagai admin MVP atau mulai Next.js app.
+- [x] Putuskan frontend final: lanjut polish Flask shell dulu, Next.js setelah CI/staging hijau.
+- [ ] Implement Phase F1 Flask shell polish dari `FRONTEND_UI_UX_ROADMAP.md`.
+- [ ] Tambahkan role-specific dashboard sections untuk semua role.
+- [ ] Tambahkan UI quality gates untuk desktop/mobile screenshot dan accessibility baseline.
 - [ ] Tambahkan production deployment checklist: secret management, Redis, rate limit, backup, monitoring, log retention, dan rollback.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
 - [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.

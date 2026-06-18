@@ -738,6 +738,13 @@ Web security baseline:
 * demo credentials are development-only and configurable through environment
   variables.
 
+Frontend final strategy:
+
+* polish the Flask shell first as the internal/staging control shell,
+* start the Next.js customer-facing app after CI and PostgreSQL staging
+  validation are green,
+* follow `FRONTEND_UI_UX_ROADMAP.md` for role-specific UI/UX polish.
+
 Run backend checks:
 
 ```powershell

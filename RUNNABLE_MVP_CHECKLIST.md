@@ -243,6 +243,25 @@ Verified on June 18, 2026:
 
 ---
 
+## Phase K - Frontend Final Strategy
+
+- [x] Flask shell polish dipilih sebagai fase frontend langsung
+- [x] Next.js app ditunda sampai CI/staging hijau
+- [x] UI/UX polish roadmap tersedia
+- [ ] Phase F1 Flask shell polish diimplementasikan
+- [ ] Role-specific dashboard sections tersedia
+- [ ] UI screenshot/accessibility quality gates tersedia
+
+### Output
+
+Completed on June 18, 2026:
+- `FRONTEND_UI_UX_ROADMAP.md` defines the frontend final strategy.
+- Decision: keep Flask shell as internal/staging production control shell.
+- Decision: start Next.js after GitHub Actions billing is resolved and PostgreSQL staging validation passes.
+- Immediate next sprint: Phase F1 - Flask Shell Polish.
+
+---
+
 ## Skipped / Deferred
 
 Format:
