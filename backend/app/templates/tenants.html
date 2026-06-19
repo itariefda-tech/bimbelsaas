@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block title %}Tenant Registration - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Connected SaaS workflow</p>
+        <h1>Tenant Registration</h1>
+        <p class="lead">Create the academy tenant first, then continue to branch setup, internal roles, teacher, student, parent, schedule, and daily operations.</p>
+      </div>
+      <a class="primary-link" href="{{ url_for('dashboard_role', role='platform_owner') }}">Platform dashboard</a>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Create tenant</p>
+          <h2>Academy identity</h2>
+        </div>
+        <form class="tenant-form" method="post" action="{{ url_for('tenant_registration_submit') }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <label>
+            Academy name
+            <input name="name" value="{{ form.name }}" required autocomplete="organization" placeholder="Meruya Learning Center">
+          </label>
+          <label>
+            Slug
+            <input name="slug" value="{{ form.slug }}" required pattern="[a-z0-9]+(-[a-z0-9]+)*" placeholder="meruya-learning-center">
+          </label>
+          <div class="form-row">
+            <label>
+              Timezone
+              <input name="timezone" value="{{ form.timezone }}" required placeholder="Asia/Jakarta">
+            </label>
+            <label>
+              Currency
+              <input name="currency" value="{{ form.currency }}" required maxlength="3" placeholder="IDR">
+            </label>
+          </div>
+          <label>
+            Logo URL
+            <input name="logo_url" value="{{ form.logo_url }}" placeholder="https://example.com/logo.png">
+          </label>
+          <button class="primary-button" type="submit">Create tenant</button>
+        </form>
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Tenant list</p>
+          <h2>Registered academies</h2>
+        </div>
+        {% if academies %}
+          <div class="tenant-list">
+            {% for academy in academies %}
+              <article class="tenant-item">
+                <div>
+                  <h3>{{ academy.name }}</h3>
+                  <p>{{ academy.slug }} / {{ academy.timezone }} / {{ academy.currency }}</p>
+                </div>
+                <div class="tenant-actions">
+                  <span>{{ academy.status }}</span>
+                  <a href="{{ url_for('academy_setup_page', academy_id=academy.id) }}">Continue setup</a>
+                </div>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No tenant registered yet</h3>
+            <p>Create the first academy tenant to start the connected setup flow.</p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Next setup path</p>
+        <h2>After tenant registration</h2>
+      </div>
+      <div class="state-grid">
+        <article class="state-item">
+          <span>Branch</span>
+          <h3>Create the first branch</h3>
+          <p>Branch scope unlocks manager, admin, teacher, student, and parent setup.</p>
+        </article>
+        <article class="state-item">
+          <span>Roles</span>
+          <h3>Assign internal team</h3>
+          <p>Map bimbel owner to Academy Director and assistants to Branch Admin.</p>
+        </article>
+        <article class="state-item">
+          <span>People</span>
+          <h3>Register teacher, student, parent</h3>
+          <p>Build the real academic graph before schedule and billing workflows.</p>
+        </article>
+        <article class="state-item">
+          <span>Schedule</span>
+          <h3>Create the first schedule</h3>
+          <p>One valid schedule connects teacher, parent, student, admin, and manager dashboards.</p>
+        </article>
+      </div>
+    </section>
+  </div>
+{% endblock %}

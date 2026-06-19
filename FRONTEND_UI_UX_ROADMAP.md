@@ -206,21 +206,26 @@ Acceptance criteria:
 
 ## Phase F5 - Role Workflow Expansion
 
-Status: in progress
+Status: in progress, reprioritized by connected SaaS workflow
 
 Objective:
 
 Membuat UI bukan hanya dashboard, tapi workflow utama yang usable.
 
+Connected workflow note:
+
+- `CONNECTED_SAAS_WORKFLOW_ROADMAP.md` is now the execution order for making dashboards connect end-to-end.
+- Tenant registration and academy setup must happen before adding more isolated role workflow panels.
+- Billing, tier, subscription, and addon UI should come after the tenant -> branch -> role -> teacher/student/parent -> schedule chain is alive.
+
 Priority order:
 
-1. Teacher daily workflow. - baseline implemented in Flask shell
-2. Parent monitoring workflow.
-3. Branch admin operational workflow.
-4. Branch manager approval workflow.
-5. Academy director reporting workflow.
-6. Platform owner SaaS operation workflow.
-7. Student learning workspace.
+1. Connected tenant registration and setup workflow. - see `CONNECTED_SAAS_WORKFLOW_ROADMAP.md`
+2. Branch manager approval workflow.
+3. Academy director reporting workflow.
+4. Platform owner SaaS operation workflow.
+5. Student learning workspace.
+6. Billing, tier, subscription, and addon UI.
 
 Deliverables per workflow:
 
@@ -236,12 +241,20 @@ Deliverables per workflow:
 Implementation notes:
 
 - Teacher dashboard now includes a `Today teaching flow` panel with next class, attendance, and lesson summary steps.
-- `npm run ui:quality` captures teacher dashboard screenshots in desktop and mobile viewports.
-- `backend/tests/test_web_security.py` includes server-side coverage for the teacher daily workflow panel.
+- Parent dashboard now includes a `Monitoring flow` with child overview, activity feed, schedule, invoice, and progress steps.
+- Parent dashboard also includes trust state coverage for empty, loading, error, and permission denied states.
+- Branch admin dashboard now includes a `Branch admin operations flow` for search, schedule, attendance support, invoice support, and pending operations.
+- Branch admin dashboard also includes operational state coverage for empty, loading, error, and permission denied states.
+- Tenant registration now has a Platform Owner-only `/tenants` page with create academy form, tenant list, duplicate slug handling, and permission denied coverage.
+- Academy setup now has `/academies/<academy_id>/setup` with academy profile editing, lifecycle status visibility, suspended/archived read-only messaging, and first branch setup.
+- Branch setup now supports create, list/detail, edit, operational status update, and archive actions from the academy setup page.
+- Internal role setup now has `/academies/<academy_id>/team` with internal user creation, role assignment, active assignment list, revoke action, and scope/permission states.
+- `npm run ui:quality` captures teacher, parent, branch admin, tenant registration, academy setup, and internal team screenshots in desktop and mobile viewports.
+- `backend/tests/test_web_security.py` includes server-side coverage for teacher daily workflow, parent monitoring workflow, and branch admin operational workflow panels.
 
 ## Phase F6 - Production Visual QA
 
-Status: future
+Status: completed for Flask shell baseline
 
 Objective:
 
@@ -249,31 +262,37 @@ Mempersiapkan UI untuk beta/public production.
 
 Checklist:
 
-- Cross-browser review.
-- Mobile viewport review.
-- Keyboard navigation.
-- Color contrast.
-- Loading and slow network states.
-- Long text and localized copy overflow.
-- API error handling.
-- Session expiry handling.
-- Role switching.
-- Unauthorized and forbidden states.
-- Screenshot baseline.
+- [x] Cross-browser baseline: automated Chromium review in CI/local gate.
+- [x] Mobile viewport review.
+- [x] Keyboard navigation.
+- [x] Color contrast.
+- [x] Loading and slow network state copy.
+- [x] Long text and localized copy overflow.
+- [x] API error handling.
+- [x] Session expiry handling.
+- [x] Role access and navigation stability.
+- [x] Unauthorized and forbidden states.
+- [x] Screenshot baseline.
+
+Implementation notes:
+
+- `scripts/ui_quality_gate.mjs` now writes explicit `qaChecks` into `artifacts/ui-quality/report.json`.
+- The gate covers login, Platform Owner, Teacher, Parent, Branch Admin, 403, and 404 screenshots.
+- Production visual QA now verifies contrast token pairs, critical keyboard traversal, invalid login, invalid CSRF, structured API 404, session expiry, forbidden role access, horizontal overflow, and important text overflow.
+- Cross-browser production sign-off beyond Chromium remains an external release activity if CI later installs Firefox/WebKit; the automated Flask shell baseline is complete and repeatable.
 
 ## Immediate Next Sprint
 
-Recommended sprint: Phase F1 - Flask Shell Polish.
+Recommended sprint: Phase CW5 - Teacher Registration from `CONNECTED_SAAS_WORKFLOW_ROADMAP.md`.
 
 Tasks:
 
-- Refactor dashboard context into role-specific sections.
-- Add role-specific dashboard cards and quick actions.
-- Add status badge styles and semantic tone tokens.
-- Improve login visual hierarchy without auto-filling demo credentials outside development.
-- Add focus states and accessibility labels.
-- Add mobile nav polish.
-- Add Playwright or Flask HTML snapshot smoke if Playwright is not yet available.
+- Add teacher user/profile creation form.
+- Add teacher list/detail view.
+- Add teacher branch assignment UI.
+- Add active/ended assignment state.
+- Add invalid cross-branch assignment and permission denied states.
+- Add Flask web coverage and Playwright desktop/mobile screenshots for teacher registration.
 
 ## Definition of Done
 

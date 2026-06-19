@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Academy Setup - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Initial academy setup</p>
+        <h1>{{ academy.name }}</h1>
+        <p class="lead">Prepare the academy identity and first branch before assigning roles, registering teachers, students, parents, and schedules.</p>
+      </div>
+      {% if can_access_tenants %}
+        <a class="primary-link" href="{{ url_for('tenant_registration_page') }}">Tenant list</a>
+      {% else %}
+        <a class="primary-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+      {% endif %}
+    </section>
+
+    {% if academy.status != "active" %}
+      <section class="work-panel status-notice {% if academy.status == 'archived' %}status-notice-danger{% endif %}">
+        <div>
+          <p class="eyebrow">Academy status</p>
+          <h2>{{ academy.status|title }}</h2>
+          {% if academy.status == "suspended" %}
+            <p>Academy setup is visible for review. Non-platform roles stay read-only until the academy is active again.</p>
+          {% else %}
+            <p>This academy is archived. Existing setup can be reviewed, but profile and branch changes are locked.</p>
+          {% endif %}
+        </div>
+      </section>
+    {% endif %}
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Academy profile</p>
+          <h2>Identity and locale</h2>
+        </div>
+        <form class="tenant-form academy-setup-form" method="post" action="{{ url_for('academy_setup_submit', academy_id=academy.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <label>
+            Academy name
+            <input name="name" value="{{ academy_form.name }}" required autocomplete="organization" {% if readonly_academy or not can_manage_academy %}disabled{% endif %}>
+          </label>
+          <label>
+            Slug
+            <input name="slug" value="{{ academy_form.slug }}" required pattern="[a-z0-9]+(-[a-z0-9]+)*" {% if readonly_academy or not can_manage_academy %}disabled{% endif %}>
+          </label>
+          <div class="form-row">
+            <label>
+              Timezone
+              <input name="timezone" value="{{ academy_form.timezone }}" required {% if readonly_academy or not can_manage_academy %}disabled{% endif %}>
+            </label>
+            <label>
+              Currency
+              <input name="currency" value="{{ academy_form.currency }}" required maxlength="3" {% if readonly_academy or not can_manage_academy %}disabled{% endif %}>
+            </label>
+          </div>
+          <label>
+            Logo URL
+            <input name="logo_url" value="{{ academy_form.logo_url }}" {% if readonly_academy or not can_manage_academy %}disabled{% endif %}>
+          </label>
+          {% if can_manage_lifecycle %}
+            <label>
+              Status
+              <select name="status" {% if archived_academy %}disabled{% endif %}>
+                {% for status in academy_statuses %}
+                  <option value="{{ status }}" {% if academy_form.status == status %}selected{% endif %}>{{ status|title }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          {% endif %}
+          {% if readonly_academy or not can_manage_academy %}
+            <p class="form-note">Profile editing is currently read-only for this role or academy state.</p>
+          {% else %}
+            <button class="primary-button" type="submit">Save academy setup</button>
+          {% endif %}
+        </form>
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Branch setup</p>
+          <h2>Create first branch</h2>
+        </div>
+        {% if readonly_academy or academy.status != "active" or not can_create_branch %}
+          <div class="empty-state">
+            <h3>Branch creation is locked</h3>
+            <p>Only roles with branch creation access can add branches, and suspended or archived academies stay protected.</p>
+          </div>
+        {% else %}
+          <form class="tenant-form branch-setup-form" method="post" action="{{ url_for('branch_setup_submit', academy_id=academy.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label>
+              Branch name
+              <input name="name" value="{{ branch_form.name }}" required placeholder="Meruya Branch">
+            </label>
+            <div class="form-row">
+              <label>
+                Code
+                <input name="code" value="{{ branch_form.code }}" required placeholder="MRY">
+              </label>
+              <label>
+                Timezone
+                <input name="timezone" value="{{ branch_form.timezone }}" required>
+              </label>
+            </div>
+            <label>
+              Address
+              <input name="address" value="{{ branch_form.address }}" placeholder="Jakarta Barat">
+            </label>
+            <button class="primary-button" type="submit">Create branch</button>
+          </form>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Branch list</p>
+        <h2>Operational branches</h2>
+      </div>
+      {% if branches %}
+        <div class="branch-list">
+          {% for branch in branches %}
+            <article class="branch-item">
+              <div class="branch-summary">
+                <div>
+                  <h3>{{ branch.name }}</h3>
+                  <p>{{ branch.code }} / {{ branch.timezone }}{% if branch.address %} / {{ branch.address }}{% endif %}</p>
+                </div>
+                <div class="tenant-actions">
+                  <span>{{ branch.status }}</span>
+                </div>
+              </div>
+              {% if not readonly_academy and can_edit_branch(branch) %}
+                <form class="tenant-form branch-edit-form" method="post" action="{{ url_for('branch_update_submit', academy_id=academy.id, branch_id=branch.id) }}">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                  <div class="form-row form-row-wide">
+                    <label>
+                      Name
+                      <input name="name" value="{{ branch.name }}" required>
+                    </label>
+                    <label>
+                      Code
+                      <input name="code" value="{{ branch.code }}" required>
+                    </label>
+                  </div>
+                  <div class="form-row form-row-wide">
+                    <label>
+                      Timezone
+                      <input name="timezone" value="{{ branch.timezone }}" required>
+                    </label>
+                    <label>
+                      Status
+                      <select name="status">
+                        {% for status in branch_statuses %}
+                          <option value="{{ status }}" {% if branch.status == status %}selected{% endif %}>{{ status|title }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    Address
+                    <input name="address" value="{{ branch.address or '' }}">
+                  </label>
+                  <div class="form-actions">
+                    <button class="primary-button" type="submit">Save branch</button>
+                  </div>
+                </form>
+              {% endif %}
+              {% if not readonly_academy and can_archive_branch(branch) %}
+                <form class="inline-danger-form" method="post" action="{{ url_for('branch_archive_submit', academy_id=academy.id, branch_id=branch.id) }}">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                  <button class="danger-button" type="submit">Archive branch</button>
+                </form>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>No branch created yet</h3>
+          <p>Create the first branch so manager, admin, teacher, student, and parent workflows have a real scope.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Next setup path</p>
+        <h2>After branch setup</h2>
+      </div>
+      <div class="state-grid">
+        <article class="state-item">
+          <span>Roles</span>
+          <h3><a class="state-link" href="{{ url_for('internal_team_page', academy_id=academy.id) }}">Assign owner and assistant</a></h3>
+          <p>Map bimbel owner to Academy Director and assistant/admin to Branch Admin.</p>
+        </article>
+        <article class="state-item">
+          <span>Teacher</span>
+          <h3>Register teachers</h3>
+          <p>Teachers need branch assignment before schedules and class operations become meaningful.</p>
+        </article>
+        <article class="state-item">
+          <span>Student</span>
+          <h3>Register students</h3>
+          <p>Students need home branch and class enrollment before parent and schedule flows connect.</p>
+        </article>
+        <article class="state-item">
+          <span>Parent</span>
+          <h3>Link parent to child</h3>
+          <p>Parent dashboard becomes useful only after a student relationship is active.</p>
+        </article>
+      </div>
+    </section>
+  </div>
+{% endblock %}

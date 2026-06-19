@@ -90,6 +90,22 @@
           {% endfor %}
         </div>
       </section>
+
+      <section class="work-panel state-panel">
+        <div class="section-heading">
+          <p class="eyebrow">States</p>
+          <h2>{{ context.state_title }}</h2>
+        </div>
+        <div class="state-grid">
+          {% for item in context.state_items %}
+            <article class="state-item">
+              <span>{{ item.label }}</span>
+              <h3>{{ item.title }}</h3>
+              <p>{{ item.body }}</p>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
     </section>
   </div>
 {% endblock %}

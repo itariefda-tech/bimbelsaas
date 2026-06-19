@@ -43,3 +43,13 @@ class UserRepository(BaseRepository[User]):
                 User.email == email,
             )
         )
+
+    def list_active_for_academy(self, academy_id: UUID) -> list[User]:
+        return list(
+            db.session.scalars(
+                select(User)
+                .options(selectinload(User.role_assignments))
+                .where(User.academy_id == academy_id, User.status == "active")
+                .order_by(User.full_name, User.email)
+            )
+        )

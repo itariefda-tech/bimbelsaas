@@ -38,13 +38,15 @@ body {
 
 a,
 button,
-input {
+input,
+select {
   outline-color: transparent;
 }
 
 a:focus-visible,
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(28, 122, 97, 0.28);
   outline-offset: 2px;
 }
@@ -198,7 +200,8 @@ label {
   font-weight: 700;
 }
 
-input {
+input,
+select {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
@@ -209,14 +212,16 @@ input {
   font: inherit;
 }
 
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--emerald);
 }
 
 .primary-button,
 .ghost-button,
 .primary-link,
-.action-button {
+.action-button,
+.danger-button {
   min-height: 42px;
   border-radius: 8px;
   padding: 10px 16px;
@@ -231,6 +236,12 @@ input:focus {
   color: #fff;
 }
 
+.danger-button {
+  border: 1px solid rgba(164, 61, 47, 0.28);
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
 .ghost-button {
   border: 1px solid rgba(255, 255, 255, 0.32);
   background: transparent;
@@ -243,6 +254,19 @@ input:focus {
   border: 0;
   background: var(--emerald);
   color: #fff;
+  text-decoration: none;
+}
+
+.secondary-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: var(--surface-soft);
+  color: var(--ink);
+  font-weight: 800;
   text-decoration: none;
 }
 
@@ -425,6 +449,10 @@ input:focus {
   margin-top: 16px;
 }
 
+.state-panel {
+  margin-top: 16px;
+}
+
 .workflow-list {
   display: grid;
   gap: 10px;
@@ -460,6 +488,270 @@ input:focus {
   color: var(--emerald);
 }
 
+.state-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.state-item {
+  min-height: 150px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.state-item span {
+  display: inline-flex;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: var(--navy-soft);
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.state-item p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.state-link {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.state-link:hover {
+  color: var(--emerald);
+  text-decoration: underline;
+}
+
+.tenant-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.tenant-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.tenant-hero .lead {
+  margin-bottom: 0;
+}
+
+.tenant-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 16px;
+}
+
+.tenant-form {
+  display: grid;
+  gap: 14px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  gap: 12px;
+}
+
+.form-row-wide {
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 0.45fr);
+}
+
+.form-note {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.tenant-list {
+  display: grid;
+  gap: 10px;
+}
+
+.branch-list {
+  display: grid;
+  gap: 12px;
+}
+
+.tenant-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.tenant-item h3,
+.tenant-item p {
+  margin-bottom: 0;
+}
+
+.tenant-item p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.tenant-actions {
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.tenant-actions span {
+  border-radius: 999px;
+  padding: 5px 8px;
+  background: var(--emerald-soft);
+  color: var(--emerald);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.tenant-actions a {
+  color: var(--emerald);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.tenant-actions a:hover {
+  text-decoration: underline;
+}
+
+.branch-item {
+  display: grid;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.branch-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.branch-summary h3,
+.branch-summary p {
+  margin-bottom: 0;
+}
+
+.branch-summary p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.branch-edit-form {
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.form-actions,
+.inline-danger-form {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.status-notice {
+  border-color: rgba(168, 117, 34, 0.35);
+  background: var(--gold-soft);
+}
+
+.status-notice-danger {
+  border-color: rgba(164, 61, 47, 0.28);
+  background: var(--danger-soft);
+}
+
+.status-notice p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.team-list {
+  display: grid;
+  gap: 10px;
+}
+
+.team-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.35fr) auto;
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.team-item h3,
+.team-item p {
+  margin-bottom: 0;
+}
+
+.team-item p {
+  margin-top: 6px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.team-scope {
+  display: grid;
+  gap: 6px;
+}
+
+.team-scope span {
+  color: var(--emerald);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.team-scope strong {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.empty-state {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  background: var(--surface-soft);
+}
+
+.empty-state p {
+  margin-bottom: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .messages {
   margin-bottom: 16px;
 }
@@ -483,8 +775,29 @@ input:focus {
   .dashboard-header,
   .metric-grid,
   .workspace-grid,
-  .workflow-item {
+  .workflow-item,
+  .state-grid,
+  .tenant-grid,
+  .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .tenant-hero,
+  .tenant-item,
+  .branch-summary,
+  .team-item {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .tenant-actions {
+    justify-items: start;
+  }
+
+  .form-actions,
+  .inline-danger-form,
+  .hero-actions {
+    justify-content: flex-start;
   }
 
   .login-panel,

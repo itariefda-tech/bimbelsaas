@@ -6,11 +6,11 @@ Frontend Final UI/UX
 
 ## Current Phase
 
-Phase F1 - Flask Shell Polish
+Phase F5 - Role Workflow Expansion
 
 ## Current Task
 
-Memoles Flask shell sebagai production control shell sambil menunda Next.js app sampai CI runner dan PostgreSQL staging validation hijau.
+Menyambungkan workflow SaaS end-to-end mulai dari tenant registration sebelum melanjutkan role workflow panel lain, sambil menunda Next.js app sampai CI runner dan PostgreSQL staging validation hijau.
 
 ## Completed In This Session
 
@@ -67,6 +67,32 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [x] Mulai Phase F5 role workflow expansion.
 - [x] Implement baseline Teacher daily workflow panel di Flask dashboard.
 - [x] Tambahkan desktop/mobile UI quality coverage untuk Teacher dashboard.
+- [x] Implement baseline Parent monitoring workflow panel di Flask dashboard.
+- [x] Tambahkan parent trust states untuk empty, loading, error, dan permission denied.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk Parent dashboard.
+- [x] Implement baseline Branch admin operational workflow panel di Flask dashboard.
+- [x] Tambahkan branch admin operational states untuk empty, loading, error, dan permission denied.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk Branch Admin dashboard.
+- [x] Selesaikan Phase F6 Production Visual QA baseline untuk Flask shell.
+- [x] Perluas `npm run ui:quality` dengan `qaChecks` untuk contrast, keyboard, invalid login, invalid CSRF, 403, 404, API error, session expiry, overflow, dan screenshot baseline.
+- [x] Tambahkan `CONNECTED_SAAS_WORKFLOW_ROADMAP.md` untuk urutan tenant -> setup bimbel -> role -> guru/parent/murid -> schedule -> operasional -> billing.
+- [x] Reprioritaskan `FRONTEND_UI_UX_ROADMAP.md` agar next sprint menjadi Tenant Registration, bukan Branch Manager approval dulu.
+- [x] Implement Phase CW1 Tenant Registration baseline.
+- [x] Tambahkan Platform Owner-only `/tenants` page dengan tenant list dan create academy form.
+- [x] Tambahkan web coverage untuk create tenant, duplicate slug, dan non-Platform Owner denied.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk tenant registration.
+- [x] Implement Phase CW2 Initial Academy Setup baseline.
+- [x] Tambahkan `/academies/<academy_id>/setup` untuk edit profil academy, locale, logo URL, dan lifecycle status.
+- [x] Tambahkan suspended/archived read-only messaging untuk academy setup.
+- [x] Implement Phase CW3 Branch Setup baseline.
+- [x] Tambahkan branch create/list/edit/status/archive flow dari academy setup page.
+- [x] Tambahkan web coverage untuk academy update, suspended read-only, branch create/edit/archive, dan Branch Admin denied.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk academy setup dan branch creation.
+- [x] Implement Phase CW4 Internal Role Setup baseline.
+- [x] Tambahkan `/academies/<academy_id>/team` untuk create internal user, assign role, list assignment, dan revoke role.
+- [x] Tambahkan scope handling untuk Academy Director, Branch Manager, dan Branch Admin.
+- [x] Tambahkan web coverage untuk create, assign, revoke, invalid scope, Academy Director access, dan Branch Admin denied.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk internal team setup.
 
 ## Skipped / Deferred Items
 
@@ -87,10 +113,13 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 
 - [ ] Full `python -m pytest -q` lulus, tetapi butuh sekitar 3 menit 15 detik pada host ini; CI perlu timeout realistis atau profiling untuk mempercepat.
 - [ ] SQLite local dev memakai `db.create_all()` untuk recovery MVP; staging/production tetap perlu validasi migration chain PostgreSQL.
-- [ ] Flask web shell masih minimal, sekarang menjadi target polish Phase F1.
+- [ ] Flask web shell sudah baseline-polished; Phase F5 masih memperluas workflow role satu per satu.
 - [ ] Staging Docker/PostgreSQL/Redis belum divalidasi secara nyata di host ini karena Docker tidak tersedia; CI workflow sudah menyiapkan validasi dengan service Postgres/Redis.
 - [ ] GitHub Actions belum bisa hijau karena runner tidak start akibat billing issue, bukan karena test/code failure.
 - [ ] Phase F3 readiness gate implemented, tetapi keputusan mulai Next.js masih blocked oleh CI/staging eksternal.
+- [ ] Phase F5 masih berlanjut, tetapi urutan eksekusi sekarang mengikuti `CONNECTED_SAAS_WORKFLOW_ROADMAP.md`.
+- [ ] Next workflow utama adalah Phase CW5 - Teacher Registration.
+- [ ] Cross-browser sign-off selain Chromium masih release activity eksternal jika CI nanti memasang Firefox/WebKit.
 
 ## Next Actions
 
@@ -107,7 +136,16 @@ Memoles Flask shell sebagai production control shell sambil menunda Next.js app 
 - [ ] Tambahkan production deployment checklist: secret management, Redis, rate limit, backup, monitoring, log retention, dan rollback.
 - [ ] Resolve external F3 blockers: GitHub Actions billing, CI green, PostgreSQL staging validation.
 - [ ] Setelah F3 unblocked, mulai Phase F4 Next.js App Foundation.
-- [ ] Lanjutkan Phase F5 Parent monitoring workflow.
+- [x] Lanjutkan Phase F5 Parent monitoring workflow.
+- [x] Lanjutkan Phase F5 Branch admin operational workflow.
+- [x] Lanjutkan Phase CW1 Tenant Registration.
+- [x] Lanjutkan Phase CW2 Initial Academy Setup.
+- [x] Lanjutkan Phase CW3 Branch Setup.
+- [x] Lanjutkan Phase CW4 Internal Role Setup.
+- [ ] Lanjutkan Phase CW5 Teacher Registration.
+- [ ] Setelah CW1-CW10 hidup, lanjutkan Phase F5 Branch manager approval workflow sebagai Phase CW11.
+- [x] Selesaikan Phase F6 Production Visual QA baseline.
+- [ ] Rekomendasi next step: implement Phase CW5 Teacher Registration sambil tetap unblock GitHub Actions billing dan PostgreSQL staging validation.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
 - [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.
 
