@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Parent Registration - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Parent registration</p>
+        <h1>{{ academy.name }} Parents</h1>
+        <p class="lead">Create parent logins, link parents to students, and keep child visibility limited to active parent-student relationships.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="primary-link" href="{{ url_for('student_registration_page', academy_id=academy.id) }}">Students</a>
+        <a class="secondary-link" href="{{ url_for('class_room_setup_page', academy_id=academy.id) }}">Class and room</a>
+        <a class="secondary-link" href="{{ url_for('academy_setup_page', academy_id=academy.id) }}">Academy setup</a>
+        {% if can_access_tenants %}
+          <a class="secondary-link" href="{{ url_for('tenant_registration_page') }}">Tenant list</a>
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Create parent</p>
+          <h2>User and first child</h2>
+        </div>
+        {% if can_create_parent %}
+          <form class="tenant-form parent-create-form" method="post" action="{{ url_for('parent_create_submit', academy_id=academy.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label>
+              Full name
+              <input name="full_name" value="{{ parent_form.full_name }}" required autocomplete="name" placeholder="Dina Parent">
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                Email
+                <input name="email" value="{{ parent_form.email }}" type="email" required autocomplete="email" placeholder="parent@example.com">
+              </label>
+              <label>
+                Temporary password
+                <input name="password" value="{{ parent_form.password }}" type="password" minlength="12" required autocomplete="new-password">
+              </label>
+            </div>
+            <div class="form-row form-row-wide">
+              <label>
+                Relationship
+                <select name="relationship_type" required>
+                  {% for relationship in ["guardian", "mother", "father", "relative"] %}
+                    <option value="{{ relationship }}" {% if parent_form.relationship_type == relationship %}selected{% endif %}>{{ relationship }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                First linked student
+                <select name="student_id" required>
+                  {% for student in students %}
+                    <option value="{{ student.id }}" {% if parent_form.student_id == student.id %}selected{% endif %}>{{ student.full_name }} / {{ branch_by_id[student.home_branch_id].name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <label class="checkbox-row">
+              <input name="primary_contact" type="checkbox" {% if parent_form.primary_contact %}checked{% endif %}>
+              Primary contact
+            </label>
+            <button class="primary-button" type="submit">Create parent</button>
+          </form>
+        {% elif students %}
+          <div class="empty-state">
+            <h3>Parent creation is locked</h3>
+            <p>Your active role can review parent links, but cannot create parent users in this branch scope.</p>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No student available</h3>
+            <p>Create a student before registering parents and linking child visibility.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Parent list</p>
+          <h2>Visible parent links</h2>
+        </div>
+        {% if parents %}
+          <div class="team-list">
+            {% for parent in parents %}
+              {% set parent_user = parent_user_by_id[parent.user_id] %}
+              <article class="team-item">
+                <div>
+                  <h3><a class="state-link" href="{{ url_for('parent_detail_page', academy_id=academy.id, parent_id=parent.id) }}">{{ parent_user.full_name if parent_user else "Parent user" }}</a></h3>
+                  <p>{{ parent_user.email if parent_user else "inactive user" }} / {{ parent.relationship_type }}</p>
+                </div>
+                <div class="team-scope">
+                  <span>Linked children</span>
+                  <strong>{{ parent.student_links|selectattr("relationship_status", "equalto", "active")|list|length }}</strong>
+                </div>
+                <a class="secondary-link" href="{{ url_for('parent_detail_page', academy_id=academy.id, parent_id=parent.id) }}">Detail</a>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No parent linked yet</h3>
+            <p>Create the first parent login and link it to a student so parent dashboards receive real child context.</p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Parent detail</p>
+        <h2>
+          {% if selected_parent %}
+            {% set selected_user = parent_user_by_id[selected_parent.user_id] %}
+            {{ selected_user.full_name if selected_user else "Parent user" }}
+          {% else %}
+            No parent selected
+          {% endif %}
+        </h2>
+      </div>
+      {% if selected_parent %}
+        {% set selected_user = parent_user_by_id[selected_parent.user_id] %}
+        <div class="tenant-grid">
+          <div class="empty-state">
+            <h3>{{ selected_user.email if selected_user else "Inactive user" }}</h3>
+            <p>{{ selected_parent.relationship_type }} / {{ "primary contact" if selected_parent.primary_contact else "secondary contact" }} / {{ selected_parent.status }}</p>
+          </div>
+
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Link child</p>
+              <h2>Multi-child support</h2>
+            </div>
+            {% if linkable_students %}
+              <form class="tenant-form parent-link-form" method="post" action="{{ url_for('parent_student_link_submit', academy_id=academy.id, parent_id=selected_parent.id) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <label>
+                  Student
+                  <select name="student_id" required>
+                    {% for student in linkable_students %}
+                      <option value="{{ student.id }}" {% if link_form.student_id == student.id %}selected{% endif %}>{{ student.full_name }} / {{ branch_by_id[student.home_branch_id].name }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <button class="primary-button" type="submit">Link student</button>
+              </form>
+            {% else %}
+              <div class="empty-state">
+                <h3>No additional student available</h3>
+                <p>All visible students are already linked, or your active role cannot assign more child links.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="team-list state-panel">
+          {% for link in selected_links %}
+            {% set linked_student = student_by_id[link.student_id] %}
+            <article class="team-item">
+              <div>
+                <h3>{{ linked_student.full_name }}</h3>
+                <p>{{ linked_student.student_code }} / {{ branch_by_id[linked_student.home_branch_id].name }}</p>
+              </div>
+              <div class="team-scope">
+                <span>Link</span>
+                <strong>{{ link.relationship_status }}</strong>
+              </div>
+              {% if link.relationship_status == "active" and can_revoke_parent_link(link) %}
+                <form class="inline-danger-form" method="post" action="{{ url_for('parent_student_revoke_submit', academy_id=academy.id, parent_id=selected_parent.id, student_id=linked_student.id) }}">
+                  <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                  <button class="danger-button" type="submit">Revoke link</button>
+                </form>
+              {% endif %}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>Parent detail is empty</h3>
+          <p>Select or create a parent to review login identity, child links, and revoke state.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

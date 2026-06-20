@@ -145,6 +145,62 @@ try {
       isMobile: true,
       mutateTeam: false,
     });
+    await runTeacherRegistrationViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+      mutateTeacher: true,
+    });
+    await runTeacherRegistrationViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+      mutateTeacher: false,
+    });
+    await runClassRoomSetupViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+      mutateClassRoom: true,
+    });
+    await runClassRoomSetupViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+      mutateClassRoom: false,
+    });
+    await runStudentRegistrationViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+      mutateStudent: true,
+    });
+    await runStudentRegistrationViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+      mutateStudent: false,
+    });
+    await runParentRegistrationViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+      mutateParent: true,
+    });
+    await runParentRegistrationViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+      mutateParent: false,
+    });
     await runProductionVisualQA(browser);
   } finally {
     await browser.close();
@@ -171,6 +227,257 @@ try {
   }
 } finally {
   server.kill();
+}
+
+async function runTeacherRegistrationViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    const unique = `qa-teacher-${Date.now()}`;
+    await login(page, demoEmail);
+    await page.goto(`${baseURL}/tenants`, { waitUntil: "networkidle" });
+    await page.fill('input[name="name"]', "QA Teacher Academy");
+    await page.fill('input[name="slug"]', unique);
+    await page.fill('input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('input[name="currency"]', "IDR");
+    await page.click('.tenant-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.locator(".tenant-item", { hasText: unique }).getByText("Continue setup").click();
+    await page.waitForLoadState("networkidle");
+
+    await page.fill('.branch-setup-form input[name="name"]', "QA Teacher Branch");
+    await page.fill('.branch-setup-form input[name="code"]', `QTR${String(Date.now()).slice(-3)}`);
+    await page.fill('.branch-setup-form input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('.branch-setup-form input[name="address"]', "Jakarta Barat");
+    await page.click('.branch-setup-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.getByText("Register teachers").click();
+    await page.waitForLoadState("networkidle");
+
+    await expectText(page, "Teacher registration", `${viewport.name} teacher registration title`);
+    await expectText(page, "User and profile", `${viewport.name} teacher profile form`);
+    await expectText(page, "Visible teachers", `${viewport.name} teacher list`);
+    await expectText(page, "Teacher detail is empty", `${viewport.name} teacher empty detail state`);
+
+    if (viewport.mutateTeacher) {
+      await page.fill('.teacher-create-form input[name="teacher_code"]', `QAT${String(Date.now()).slice(-4)}`);
+      await page.fill('.teacher-create-form input[name="full_name"]', "QA Teacher Flow");
+      await page.selectOption('.teacher-create-form select[name="employment_status"]', "active");
+      await page.fill('.teacher-create-form input[name="specialization"]', "English");
+      await page.fill('.teacher-create-form input[name="user_email"]', `${unique}@example.com`);
+      await page.fill('.teacher-create-form input[name="user_password"]', "password12345");
+      await page.click('.teacher-create-form button[type="submit"]');
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Teacher QA Teacher Flow berhasil dibuat dan dihubungkan ke branch.", "teacher create success");
+      await expectText(page, "QA Teacher Flow", "created teacher visible");
+      await expectText(page, "Branch assignment", "created teacher assignment panel");
+      await expectText(page, "active", "teacher active assignment visible");
+    }
+
+    await expectNoHorizontalOverflow(page, `${viewport.name} teacher registration overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} teacher registration important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} teacher registration buttons`);
+    await capture(page, `${viewport.name}-teacher-registration.png`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function runClassRoomSetupViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    const unique = `qa-class-${Date.now()}`;
+    await login(page, demoEmail);
+    await page.goto(`${baseURL}/tenants`, { waitUntil: "networkidle" });
+    await page.fill('input[name="name"]', "QA Class Academy");
+    await page.fill('input[name="slug"]', unique);
+    await page.fill('input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('input[name="currency"]', "IDR");
+    await page.click('.tenant-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.locator(".tenant-item", { hasText: unique }).getByText("Continue setup").click();
+    await page.waitForLoadState("networkidle");
+
+    await page.fill('.branch-setup-form input[name="name"]', "QA Class Branch");
+    await page.fill('.branch-setup-form input[name="code"]', `QCL${String(Date.now()).slice(-3)}`);
+    await page.fill('.branch-setup-form input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('.branch-setup-form input[name="address"]', "Jakarta Barat");
+    await page.click('.branch-setup-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.getByText("Prepare class and room").click();
+    await page.waitForLoadState("networkidle");
+
+    await expectText(page, "Class and room setup", `${viewport.name} class room setup title`);
+    await expectText(page, "Branch resource", `${viewport.name} room create form`);
+    await expectText(page, "Enrollment container", `${viewport.name} class create form`);
+    await expectText(page, "Rooms and classes", `${viewport.name} class resource list`);
+    await expectText(page, "No room yet", `${viewport.name} room empty state`);
+    await expectText(page, "No class yet", `${viewport.name} class empty state`);
+
+    if (viewport.mutateClassRoom) {
+      await page.fill('.room-create-form input[name="room_code"]', `QAR${String(Date.now()).slice(-4)}`);
+      await page.fill('.room-create-form input[name="room_name"]', "QA Room Flow");
+      await page.fill('.room-create-form input[name="capacity"]', "18");
+      await page.fill('.room-create-form input[name="room_type"]', "Offline");
+      await page.click('.room-create-form button[type="submit"]');
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Room QA Room Flow berhasil dibuat.", "room create success");
+      await expectText(page, "QA Room Flow", "created room visible");
+
+      await page.fill('.class-create-form input[name="class_code"]', `QAC${String(Date.now()).slice(-4)}`);
+      await page.fill('.class-create-form input[name="class_name"]', "QA Class Flow");
+      await page.fill('.class-create-form input[name="capacity"]', "16");
+      await page.click('.class-create-form button[type="submit"]');
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Class QA Class Flow berhasil dibuat.", "class create success");
+      await expectText(page, "QA Class Flow", "created class visible");
+    }
+
+    await expectNoHorizontalOverflow(page, `${viewport.name} class room setup overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} class room setup important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} class room setup buttons`);
+    await capture(page, `${viewport.name}-class-room-setup.png`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function runStudentRegistrationViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    const unique = `qa-student-${Date.now()}`;
+    await login(page, demoEmail);
+    await page.goto(`${baseURL}/tenants`, { waitUntil: "networkidle" });
+    await page.fill('input[name="name"]', "QA Student Academy");
+    await page.fill('input[name="slug"]', unique);
+    await page.fill('input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('input[name="currency"]', "IDR");
+    await page.click('.tenant-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.locator(".tenant-item", { hasText: unique }).getByText("Continue setup").click();
+    await page.waitForLoadState("networkidle");
+
+    await page.fill('.branch-setup-form input[name="name"]', "QA Student Branch");
+    await page.fill('.branch-setup-form input[name="code"]', `QST${String(Date.now()).slice(-3)}`);
+    await page.fill('.branch-setup-form input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('.branch-setup-form input[name="address"]', "Jakarta Barat");
+    await page.click('.branch-setup-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.getByText("Prepare class and room").click();
+    await page.waitForLoadState("networkidle");
+
+    await page.fill('.class-create-form input[name="class_code"]', `QAS${String(Date.now()).slice(-4)}`);
+    await page.fill('.class-create-form input[name="class_name"]', "QA Student Class");
+    await page.fill('.class-create-form input[name="capacity"]', "16");
+    await page.click('.class-create-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.getByText("Register students").click();
+    await page.waitForLoadState("networkidle");
+
+    await expectText(page, "Student registration", `${viewport.name} student registration title`);
+    await expectText(page, "Profile and home branch", `${viewport.name} student create form`);
+    await expectText(page, "Visible students", `${viewport.name} student list`);
+    await expectText(page, "Student detail is empty", `${viewport.name} student empty detail state`);
+
+    if (viewport.mutateStudent) {
+      await page.fill('.student-create-form input[name="student_code"]', `QAS${String(Date.now()).slice(-4)}`);
+      await page.fill('.student-create-form input[name="full_name"]', "QA Student Flow");
+      await page.fill('.student-create-form input[name="birth_date"]', "2012-05-20");
+      await page.fill('.student-create-form input[name="user_email"]', `${unique}@example.com`);
+      await page.fill('.student-create-form input[name="user_password"]', "password12345");
+      await page.click('.student-create-form button[type="submit"]');
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Student QA Student Flow berhasil dibuat.", "student create success");
+      await expectText(page, "QA Student Flow", "created student visible");
+      await expectText(page, "Class enrollment", "student enrollment panel");
+
+      await page.click('.student-enrollment-form button[type="submit"]');
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Student berhasil dienroll ke class.", "student enrollment success");
+      await expectText(page, "QA Student Class", "student enrolled class visible");
+    }
+
+    await expectNoHorizontalOverflow(page, `${viewport.name} student registration overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} student registration important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} student registration buttons`);
+    await capture(page, `${viewport.name}-student-registration.png`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function runParentRegistrationViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    const unique = `qa-parent-${Date.now()}`;
+    await login(page, demoEmail);
+    await page.goto(`${baseURL}/tenants`, { waitUntil: "networkidle" });
+    await page.fill('input[name="name"]', "QA Parent Academy");
+    await page.fill('input[name="slug"]', unique);
+    await page.fill('input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('input[name="currency"]', "IDR");
+    await page.click('.tenant-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.locator(".tenant-item", { hasText: unique }).getByText("Continue setup").click();
+    await page.waitForLoadState("networkidle");
+
+    await page.fill('.branch-setup-form input[name="name"]', "QA Parent Branch");
+    await page.fill('.branch-setup-form input[name="code"]', `QPA${String(Date.now()).slice(-3)}`);
+    await page.fill('.branch-setup-form input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('.branch-setup-form input[name="address"]', "Jakarta Barat");
+    await page.click('.branch-setup-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.getByText("Register students").click();
+    await page.waitForLoadState("networkidle");
+
+    await page.fill('.student-create-form input[name="student_code"]', `QAP${String(Date.now()).slice(-4)}`);
+    await page.fill('.student-create-form input[name="full_name"]', "QA Parent Child");
+    await page.fill('.student-create-form input[name="birth_date"]', "2013-08-15");
+    await page.click('.student-create-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.getByText("Parents").click();
+    await page.waitForLoadState("networkidle");
+
+    await expectText(page, "Parent registration", `${viewport.name} parent registration title`);
+    await expectText(page, "User and first child", `${viewport.name} parent create form`);
+    await expectText(page, "Visible parent links", `${viewport.name} parent list`);
+    await expectText(page, "Parent detail is empty", `${viewport.name} parent empty detail state`);
+
+    if (viewport.mutateParent) {
+      await page.fill('.parent-create-form input[name="full_name"]', "QA Parent Flow");
+      await page.fill('.parent-create-form input[name="email"]', `${unique}@example.com`);
+      await page.fill('.parent-create-form input[name="password"]', "password12345");
+      await page.selectOption('.parent-create-form select[name="relationship_type"]', "guardian");
+      await page.click('.parent-create-form button[type="submit"]');
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Parent QA Parent Flow berhasil dibuat dan dihubungkan ke student.", "parent create success");
+      await expectText(page, "QA Parent Flow", "created parent visible");
+      await expectText(page, "Linked children", "parent linked child count visible");
+      await expectText(page, "Multi-child support", "parent multi-child panel");
+    }
+
+    await expectNoHorizontalOverflow(page, `${viewport.name} parent registration overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} parent registration important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} parent registration buttons`);
+    await capture(page, `${viewport.name}-parent-registration.png`);
+  } finally {
+    await context.close();
+  }
 }
 
 async function runInternalTeamViewport(browser, viewport) {

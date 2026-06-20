@@ -216,7 +216,7 @@ Implementation notes:
 
 ## Phase CW5 - Teacher Registration
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -244,12 +244,23 @@ Deliverables:
 
 Acceptance criteria:
 
-- Active teacher has at least one active branch assignment.
-- Teacher cannot see unrelated branch/class data.
+- [x] Active teacher has at least one active branch assignment.
+- [x] Teacher cannot see unrelated branch/class data.
+
+Implementation notes:
+
+- `/academies/<academy_id>/teachers` now provides the connected Teacher Registration page after internal role setup.
+- Academy Director, Branch Manager, and Branch Admin can create teacher profiles within their permitted branch scope.
+- Teacher creation can also create and link a login user, while class-scoped Teacher role assignment remains deferred until class setup creates a real teaching scope.
+- Teacher detail shows profile fields, visible branch assignments, and active/ended assignment state.
+- Ending an assignment uses `TeacherService.remove_branch`, preserving the rule that a teacher must keep at least one active branch assignment.
+- Invalid cross-branch creation or assignment attempts are denied through existing permission checks.
+- `backend/tests/test_web_security.py` covers teacher user/profile creation, branch assignment ending, branch-scoped list visibility, and cross-branch denial.
+- `npm run ui:quality` captures desktop/mobile teacher registration screenshots and creates a teacher from the UI.
 
 ## Phase CW6 - Class And Room Setup
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -276,12 +287,23 @@ Deliverables:
 
 Acceptance criteria:
 
-- Branch-scoped resources stay isolated.
-- Conflict-prone data is validated before schedule creation.
+- [x] Branch-scoped resources stay isolated.
+- [x] Conflict-prone data is validated before schedule creation.
+
+Implementation notes:
+
+- `/academies/<academy_id>/classes` now provides the connected Class And Room Setup page after teacher registration.
+- Academy Director, Branch Manager, and Branch Admin can create rooms and classes within their permitted branch scope.
+- Room creation uses `RoomService`, preserving branch active-state validation, duplicate room code checks, audit logging, and `CLASS_MANAGE` permission behavior.
+- Class creation uses `ClassService`, preserving branch active-state validation, duplicate class code checks, capacity metadata, audit logging, and `CLASS_MANAGE` permission behavior.
+- Branch-scoped users only see rooms and classes from visible branches, and cross-branch create attempts are denied by existing authorization checks.
+- Teacher assignment to class remains deferred until class-scoped role assignment and schedule creation are connected in the next workflow phases.
+- `backend/tests/test_web_security.py` covers room/class creation, branch-scoped visibility, and cross-branch denial.
+- `npm run ui:quality` captures desktop/mobile class and room setup screenshots and creates a room and class from the UI.
 
 ## Phase CW7 - Student Registration
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -308,12 +330,23 @@ Deliverables:
 
 Acceptance criteria:
 
-- Student belongs to one academy and home branch.
-- Student dashboard shows own schedule/material/progress once schedule exists.
+- [x] Student belongs to one academy and home branch.
+- [x] Student dashboard shows own schedule/material/progress once schedule exists.
+
+Implementation notes:
+
+- `/academies/<academy_id>/students` now provides the connected Student Registration page after class and room setup.
+- Academy Director, Branch Manager, and Branch Admin can create student profiles within their permitted branch scope.
+- Student creation can also create and link a login user while preserving existing `StudentService` validation, duplicate code checks, active branch checks, permission checks, and audit logging.
+- Student detail shows profile fields, home branch state, optional login linkage, and active class enrollment state.
+- Class enrollment uses `ClassService.enroll_student`, preserving capacity checks, active class validation, branch access rules, duplicate enrollment protection, and audit logging.
+- Branch-scoped users only see students, classes, and enrollments from visible branches, and cross-branch create attempts are denied by existing authorization checks.
+- `backend/tests/test_web_security.py` covers student user/profile creation, class enrollment, branch-scoped list visibility, and cross-branch denial.
+- `npm run ui:quality` captures desktop/mobile student registration screenshots and creates a student plus class enrollment from the UI.
 
 ## Phase CW8 - Parent Registration And Child Link
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -340,9 +373,20 @@ Deliverables:
 
 Acceptance criteria:
 
-- Parent sees linked children only.
-- Revoked links remove visibility.
-- Parent cannot access other student data.
+- [x] Parent sees linked children only.
+- [x] Revoked links remove visibility.
+- [x] Parent cannot access other student data.
+
+Implementation notes:
+
+- `/academies/<academy_id>/parents` now provides the connected Parent Registration And Child Link page after student registration.
+- Academy Director, Branch Manager, and Branch Admin can create parent login users and link them to visible students within permitted branch scope.
+- Parent creation uses `IdentityService.create_user` and `IdentityService.assign_role` with `Role.PARENT` and `ScopeType.LINKED_STUDENT`, preserving existing parent profile activation, `ParentStudent` link creation, scope validation, audit logging, and parent dashboard permissions.
+- Parent detail shows parent login identity, relationship metadata, active/inactive child links, and a multi-child link form.
+- Link revoke uses `IdentityService.revoke_role`, preserving role revocation audit logging and setting `ParentStudent.relationship_status` inactive.
+- Branch-scoped users only see parents linked to visible students, and cross-branch parent creation/link attempts are denied by existing authorization checks.
+- `backend/tests/test_web_security.py` covers parent user/profile creation, multi-child link, link revoke, branch-scoped list visibility, cross-branch denial, and parent API denial for revoked/unlinked students.
+- `npm run ui:quality` captures desktop/mobile parent registration screenshots and creates a parent-child link from the UI.
 
 ## Phase CW9 - First Schedule Creation
 
@@ -557,17 +601,17 @@ Acceptance criteria:
 
 ## Recommended Immediate Sprint
 
-Continue with **Phase CW5 - Teacher Registration**.
+Continue with **Phase CW9 - First Schedule Creation**.
 
-Tenant, academy, branch, and internal roles now have a connected Flask UI path. The next step is creating teacher profiles and linking them to branch scope so schedules can later select real teachers instead of seeded demo users.
+Tenant, academy, branch, internal roles, teachers, rooms, classes, students, and parent-child links now have a connected Flask UI path. The next step is creating the first schedule so Teacher, Student, Parent, Branch Admin, and Branch Manager dashboards can all show operational data from the same workflow.
 
 Initial implementation target:
 
-- Teacher user/profile creation form.
-- Teacher list/detail view.
-- Teacher branch assignment UI.
-- Active/ended assignment state.
-- Permission denied and invalid cross-branch assignment states.
+- Schedule creation form.
+- Select class, teacher, room, date/time.
+- Conflict validation result UI.
+- Schedule list/detail.
+- Created schedule appears in role dashboards or dashboard-ready service context.
 
 ## Definition Of Connected Done
 

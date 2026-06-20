@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}Class And Room Setup - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Class and room setup</p>
+        <h1>{{ academy.name }} Classes</h1>
+        <p class="lead">Create branch-scoped rooms and classes before student enrollment and the first operational schedule.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="primary-link" href="{{ url_for('teacher_registration_page', academy_id=academy.id) }}">Teachers</a>
+        <a class="secondary-link" href="{{ url_for('academy_setup_page', academy_id=academy.id) }}">Academy setup</a>
+        {% if can_access_tenants %}
+          <a class="secondary-link" href="{{ url_for('tenant_registration_page') }}">Tenant list</a>
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Create room</p>
+          <h2>Branch resource</h2>
+        </div>
+        {% if manageable_branches %}
+          <form class="tenant-form room-create-form" method="post" action="{{ url_for('room_create_submit', academy_id=academy.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row form-row-wide">
+              <label>
+                Room code
+                <input name="room_code" value="{{ room_form.room_code }}" required placeholder="R-101">
+              </label>
+              <label>
+                Branch
+                <select name="branch_id" required>
+                  {% for branch in manageable_branches %}
+                    <option value="{{ branch.id }}" {% if room_form.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <label>
+              Room name
+              <input name="room_name" value="{{ room_form.room_name }}" required placeholder="Room 101">
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                Capacity
+                <input name="capacity" value="{{ room_form.capacity }}" type="number" min="1" required>
+              </label>
+              <label>
+                Room type
+                <input name="room_type" value="{{ room_form.room_type }}" placeholder="Offline, lab, online">
+              </label>
+            </div>
+            <button class="primary-button" type="submit">Create room</button>
+          </form>
+        {% elif branches %}
+          <div class="empty-state">
+            <h3>Room creation is locked</h3>
+            <p>Your active role can review room setup, but cannot create rooms in this branch scope.</p>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No active branch available</h3>
+            <p>Create an active branch before preparing rooms for class scheduling.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Create class</p>
+          <h2>Enrollment container</h2>
+        </div>
+        {% if manageable_branches %}
+          <form class="tenant-form class-create-form" method="post" action="{{ url_for('class_create_submit', academy_id=academy.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row form-row-wide">
+              <label>
+                Class code
+                <input name="class_code" value="{{ class_form.class_code }}" required placeholder="ENG-7A">
+              </label>
+              <label>
+                Branch
+                <select name="branch_id" required>
+                  {% for branch in manageable_branches %}
+                    <option value="{{ branch.id }}" {% if class_form.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <label>
+              Class name
+              <input name="class_name" value="{{ class_form.class_name }}" required placeholder="English Grade 7A">
+            </label>
+            <label>
+              Capacity
+              <input name="capacity" value="{{ class_form.capacity }}" type="number" min="1" required>
+            </label>
+            <p class="form-note">Teacher assignment stays deferred until the class scope can be connected to schedules and role assignment.</p>
+            <button class="primary-button" type="submit">Create class</button>
+          </form>
+        {% elif branches %}
+          <div class="empty-state">
+            <h3>Class creation is locked</h3>
+            <p>Your active role can review class setup, but cannot create classes in this branch scope.</p>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No active branch available</h3>
+            <p>Create an active branch before preparing classes for enrollment.</p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Branch resources</p>
+        <h2>Rooms and classes</h2>
+      </div>
+      {% if branches %}
+        <div class="branch-list">
+          {% for branch in branches %}
+            <article class="branch-item">
+              <div class="branch-summary">
+                <div>
+                  <h3>{{ branch.name }}</h3>
+                  <p>{{ branch.code }} / {{ branch.timezone }}</p>
+                </div>
+                <div class="tenant-actions">
+                  <span>{{ branch.status }}</span>
+                </div>
+              </div>
+
+              <div class="tenant-grid">
+                <div>
+                  <div class="section-heading">
+                    <p class="eyebrow">Rooms</p>
+                    <h2>Available space</h2>
+                  </div>
+                  {% if rooms_by_branch[branch.id] %}
+                    <div class="team-list">
+                      {% for room in rooms_by_branch[branch.id] %}
+                        <article class="team-item">
+                          <div>
+                            <h3>{{ room.room_name }}</h3>
+                            <p>{{ room.room_code }} / {{ room.room_type or "general" }}</p>
+                          </div>
+                          <div class="team-scope">
+                            <span>Capacity</span>
+                            <strong>{{ room.capacity }}</strong>
+                          </div>
+                          <div class="team-scope">
+                            <span>Status</span>
+                            <strong>{{ room.status }}</strong>
+                          </div>
+                        </article>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="empty-state">
+                      <h3>No room yet</h3>
+                      <p>Create a room so first schedule validation can check room availability.</p>
+                    </div>
+                  {% endif %}
+                </div>
+
+                <div>
+                  <div class="section-heading">
+                    <p class="eyebrow">Classes</p>
+                    <h2>Enrollment groups</h2>
+                  </div>
+                  {% if classes_by_branch[branch.id] %}
+                    <div class="team-list">
+                      {% for academic_class in classes_by_branch[branch.id] %}
+                        <article class="team-item">
+                          <div>
+                            <h3>{{ academic_class.class_name }}</h3>
+                            <p>{{ academic_class.class_code }}</p>
+                          </div>
+                          <div class="team-scope">
+                            <span>Capacity</span>
+                            <strong>{{ academic_class.capacity }}</strong>
+                          </div>
+                          <div class="team-scope">
+                            <span>Status</span>
+                            <strong>{{ academic_class.status }}</strong>
+                          </div>
+                        </article>
+                      {% endfor %}
+                    </div>
+                  {% else %}
+                    <div class="empty-state">
+                      <h3>No class yet</h3>
+                      <p>Create a class before enrolling students or building the first schedule.</p>
+                    </div>
+                  {% endif %}
+                </div>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>Class and room setup is waiting for branch scope</h3>
+          <p>Rooms and classes are branch-scoped, so this page becomes active after branch setup.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Next setup path</p>
+        <h2>After class and room setup</h2>
+      </div>
+      <div class="state-grid">
+        <article class="state-item">
+          <span>Student</span>
+          <h3><a class="state-link" href="{{ url_for('student_registration_page', academy_id=academy.id) }}">Register students</a></h3>
+          <p>Students can be placed into a home branch and enrolled into prepared classes.</p>
+        </article>
+        <article class="state-item">
+          <span>Parent</span>
+          <h3>Link parent to child</h3>
+          <p>Parent visibility becomes meaningful once student records and class enrollment exist.</p>
+        </article>
+        <article class="state-item">
+          <span>Schedule</span>
+          <h3>Create first schedule</h3>
+          <p>Schedule creation can select a real class, room, branch, and teacher context.</p>
+        </article>
+      </div>
+    </section>
+  </div>
+{% endblock %}

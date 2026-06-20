@@ -1,8 +1,7 @@
 import { spawn } from "node:child_process";
 
 const port = process.env.FLASK_RUN_PORT || "5000";
-const url =
-  process.env.DEV_OPEN_URL || `http://127.0.0.1:${port}/api/v1/health/live`;
+const url = process.env.DEV_OPEN_URL || `http://127.0.0.1:${port}/login`;
 
 setTimeout(() => {
   const opener =

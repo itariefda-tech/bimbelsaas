@@ -546,7 +546,8 @@ npm run dev
 
 Both commands run the Flask/Socket.IO backend from `backend/`. This repository
 does not include a frontend application yet, so `npm run dev` is only a backend
-shortcut.
+shortcut. `npm run dev` opens the web auth shell at `http://127.0.0.1:5000/login`
+by default. Set `DEV_OPEN_URL` to override the page opened by the helper.
 
 Core health endpoints:
 

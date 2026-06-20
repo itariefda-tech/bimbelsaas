@@ -26,12 +26,35 @@ class ParentRepository(BaseRepository[Parent]):
     def __init__(self) -> None:
         super().__init__(Parent)
 
+    def get_scoped(self, academy_id: UUID, parent_id: UUID) -> Parent | None:
+        return db.session.scalar(
+            select(Parent).where(
+                Parent.academy_id == academy_id,
+                Parent.id == parent_id,
+            )
+        )
+
     def get_by_user(self, academy_id: UUID, user_id: UUID) -> Parent | None:
         return db.session.scalar(
             select(Parent).where(
                 Parent.academy_id == academy_id,
                 Parent.user_id == user_id,
             )
+        )
+
+    def list_for_academy(self, academy_id: UUID) -> list[Parent]:
+        return list(
+            db.session.execute(
+                select(Parent)
+                .options(joinedload(Parent.student_links))
+                .where(
+                    Parent.academy_id == academy_id,
+                    Parent.status != "archived",
+                )
+                .order_by(Parent.updated_at.desc(), Parent.id)
+            )
+            .unique()
+            .scalars()
         )
 
 
@@ -67,6 +90,25 @@ class ParentStudentRepository(BaseRepository[ParentStudent]):
                     ParentStudent.academy_id == academy_id,
                     ParentStudent.parent_id == parent_id,
                     ParentStudent.relationship_status == "active",
+                    Student.status != "archived",
+                )
+                .order_by(Student.full_name, ParentStudent.id)
+            )
+        )
+
+    def list_for_parent(
+        self,
+        academy_id: UUID,
+        parent_id: UUID,
+    ) -> list[ParentStudent]:
+        return list(
+            db.session.scalars(
+                select(ParentStudent)
+                .options(joinedload(ParentStudent.student))
+                .join(Student, Student.id == ParentStudent.student_id)
+                .where(
+                    ParentStudent.academy_id == academy_id,
+                    ParentStudent.parent_id == parent_id,
                     Student.status != "archived",
                 )
                 .order_by(Student.full_name, ParentStudent.id)

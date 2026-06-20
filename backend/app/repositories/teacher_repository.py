@@ -15,7 +15,7 @@ class TeacherRepository(BaseRepository[Teacher]):
     def get_scoped(self, academy_id: UUID, teacher_id: UUID) -> Teacher | None:
         return db.session.scalar(
             select(Teacher)
-            .options(selectinload(Teacher.branch_assignments))
+            .options(selectinload(Teacher.branch_assignments), selectinload(Teacher.user))
             .where(
                 Teacher.id == teacher_id,
                 Teacher.academy_id == academy_id,
@@ -25,7 +25,7 @@ class TeacherRepository(BaseRepository[Teacher]):
     def get_by_user(self, academy_id: UUID, user_id: UUID) -> Teacher | None:
         return db.session.scalar(
             select(Teacher)
-            .options(selectinload(Teacher.branch_assignments))
+            .options(selectinload(Teacher.branch_assignments), selectinload(Teacher.user))
             .where(
                 Teacher.academy_id == academy_id,
                 Teacher.user_id == user_id,
@@ -45,7 +45,7 @@ class TeacherRepository(BaseRepository[Teacher]):
         return list(
             db.session.scalars(
                 select(Teacher)
-                .options(selectinload(Teacher.branch_assignments))
+                .options(selectinload(Teacher.branch_assignments), selectinload(Teacher.user))
                 .where(
                     Teacher.academy_id == academy_id,
                     Teacher.status != "archived",
@@ -64,7 +64,7 @@ class TeacherRepository(BaseRepository[Teacher]):
         return list(
             db.session.scalars(
                 select(Teacher)
-                .options(selectinload(Teacher.branch_assignments))
+                .options(selectinload(Teacher.branch_assignments), selectinload(Teacher.user))
                 .where(
                     Teacher.academy_id == academy_id,
                     Teacher.id.in_(teacher_ids),

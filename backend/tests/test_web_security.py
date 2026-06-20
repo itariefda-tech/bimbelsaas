@@ -4,9 +4,17 @@ from app import create_app
 from app.config import ProductionConfig
 from app.extensions import db
 from app.models.academy import Academy
+from app.models.academic_class import AcademicClass
 from app.models.branch import Branch
+from app.models.class_student import ClassStudent
+from app.models.parent import Parent
+from app.models.parent_student import ParentStudent
 from app.models.role_assignment import RoleAssignment
+from app.models.room import Room
 from app.models.student import Student
+from app.models.teacher import Teacher
+from app.models.teacher_branch import TeacherBranch
+from app.models.user import User
 from app.permissions.constants import Role, ScopeType
 from tests.conftest import TestConfig
 
@@ -766,6 +774,923 @@ def test_branch_admin_cannot_manage_internal_roles(
     page = client.get(f"/academies/{academy_id}/team")
 
     assert page.status_code == 403
+
+
+def test_academy_director_can_create_teacher_user_profile_and_branch_assignment(
+    client,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    user, _ = create_identity(
+        academy_id=academy_id,
+        email="teacher-flow-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/teachers")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Teacher registration" in body
+    assert "Create teacher" in body
+
+    created = client.post(
+        f"/academies/{academy_id}/teachers",
+        data={
+            "teacher_code": "web-t-001",
+            "full_name": "Web Teacher One",
+            "employment_status": "active",
+            "specialization": "English",
+            "branch_id": str(branch_id),
+            "user_id": "",
+            "user_email": "web-teacher-one@example.com",
+            "user_password": "password12345",
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = created.get_data(as_text=True)
+
+    assert created.status_code == 200
+    assert "Teacher Web Teacher One berhasil dibuat dan dihubungkan ke branch." in body
+    assert "WEB-T-001" in body
+    assert "web-teacher-one@example.com" in body
+
+    teacher = db.session.scalar(
+        db.select(Teacher).where(
+            Teacher.academy_id == academy_id,
+            Teacher.teacher_code == "WEB-T-001",
+        )
+    )
+    teacher_user = db.session.get(User, teacher.user_id)
+    assignment = db.session.scalar(
+        db.select(TeacherBranch).where(
+            TeacherBranch.teacher_id == teacher.id,
+            TeacherBranch.branch_id == branch_id,
+        )
+    )
+
+    assert teacher.full_name == "Web Teacher One"
+    assert teacher_user.email == "web-teacher-one@example.com"
+    assert assignment.assignment_status == "active"
+
+
+def test_teacher_branch_assignment_can_be_ended_from_web_when_another_branch_remains(
+    client,
+    create_identity,
+    create_branch,
+    academy_id,
+    branch_id,
+):
+    other_branch = create_branch(academy_id=academy_id, name="Teacher Other Branch")
+    user, _ = create_identity(
+        academy_id=academy_id,
+        email="teacher-assign-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/teachers")
+    created = client.post(
+        f"/academies/{academy_id}/teachers",
+        data={
+            "teacher_code": "WEB-T-002",
+            "full_name": "Web Teacher Two",
+            "employment_status": "active",
+            "specialization": "Math",
+            "branch_id": str(branch_id),
+            "user_id": "",
+            "user_email": "",
+            "user_password": "",
+            "_csrf_token": _csrf_from_body(page.get_data(as_text=True)),
+        },
+        follow_redirects=True,
+    )
+    body = created.get_data(as_text=True)
+    teacher = db.session.scalar(
+        db.select(Teacher).where(Teacher.teacher_code == "WEB-T-002")
+    )
+
+    assigned = client.post(
+        f"/academies/{academy_id}/teachers/{teacher.id}/branches",
+        data={
+            "branch_id": str(other_branch.id),
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = assigned.get_data(as_text=True)
+
+    assert assigned.status_code == 200
+    assert "Teacher branch assignment berhasil diaktifkan." in body
+
+    ended = client.post(
+        f"/academies/{academy_id}/teachers/{teacher.id}/branches/{branch_id}/end",
+        data={"_csrf_token": _csrf_from_body(body)},
+        follow_redirects=True,
+    )
+    body = ended.get_data(as_text=True)
+    ended_assignment = db.session.scalar(
+        db.select(TeacherBranch).where(
+            TeacherBranch.teacher_id == teacher.id,
+            TeacherBranch.branch_id == branch_id,
+        )
+    )
+
+    assert ended.status_code == 200
+    assert "Teacher branch assignment berhasil diakhiri." in body
+    assert "ended" in body
+    assert ended_assignment.assignment_status == "ended"
+
+
+def test_branch_admin_teacher_registration_is_branch_scoped_and_rejects_cross_branch(
+    client,
+    create_identity,
+    create_branch,
+    academy_id,
+    branch_id,
+):
+    other_branch = create_branch(academy_id=academy_id, name="Teacher Hidden Branch")
+    director, _ = create_identity(
+        academy_id=academy_id,
+        email="teacher-scope-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": director.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/teachers")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/teachers",
+        data={
+            "teacher_code": "WEB-T-A",
+            "full_name": "Visible Teacher",
+            "employment_status": "active",
+            "specialization": "",
+            "branch_id": str(branch_id),
+            "user_id": "",
+            "user_email": "",
+            "user_password": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/teachers")
+    client.post(
+        f"/academies/{academy_id}/teachers",
+        data={
+            "teacher_code": "WEB-T-B",
+            "full_name": "Hidden Teacher",
+            "employment_status": "active",
+            "specialization": "",
+            "branch_id": str(other_branch.id),
+            "user_id": "",
+            "user_email": "",
+            "user_password": "",
+            "_csrf_token": _csrf_from_body(page.get_data(as_text=True)),
+        },
+    )
+    client.post("/logout", data={"_csrf_token": _csrf_from_body(page.get_data(as_text=True))})
+
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="teacher-scope-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/teachers")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Visible Teacher" in body
+    assert "Hidden Teacher" not in body
+
+    denied = client.post(
+        f"/academies/{academy_id}/teachers",
+        data={
+            "teacher_code": "WEB-T-X",
+            "full_name": "Cross Branch Teacher",
+            "employment_status": "active",
+            "specialization": "",
+            "branch_id": str(other_branch.id),
+            "user_id": "",
+            "user_email": "",
+            "user_password": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    assert denied.status_code == 403
+    assert "permission" in denied.get_data(as_text=True).lower()
+
+
+def test_academy_director_can_create_room_and_class_from_web(
+    client,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    user, _ = create_identity(
+        academy_id=academy_id,
+        email="class-room-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/classes")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Class and room setup" in body
+    assert "Create room" in body
+    assert "Create class" in body
+
+    room_created = client.post(
+        f"/academies/{academy_id}/rooms",
+        data={
+            "branch_id": str(branch_id),
+            "room_code": "web-r-101",
+            "room_name": "Web Room 101",
+            "capacity": "16",
+            "room_type": "Offline",
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = room_created.get_data(as_text=True)
+
+    assert room_created.status_code == 200
+    assert "Room Web Room 101 berhasil dibuat." in body
+    assert "WEB-R-101 / Offline" in body
+
+    class_created = client.post(
+        f"/academies/{academy_id}/classes",
+        data={
+            "branch_id": str(branch_id),
+            "class_code": "web-c-7a",
+            "class_name": "Web Class 7A",
+            "capacity": "14",
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = class_created.get_data(as_text=True)
+
+    assert class_created.status_code == 200
+    assert "Class Web Class 7A berhasil dibuat." in body
+    assert "WEB-C-7A" in body
+
+    room = db.session.scalar(db.select(Room).where(Room.room_code == "WEB-R-101"))
+    academic_class = db.session.scalar(
+        db.select(AcademicClass).where(AcademicClass.class_code == "WEB-C-7A")
+    )
+
+    assert room.branch_id == branch_id
+    assert room.capacity == 16
+    assert academic_class.branch_id == branch_id
+    assert academic_class.capacity == 14
+
+
+def test_branch_admin_class_room_setup_is_branch_scoped_and_rejects_cross_branch(
+    client,
+    create_identity,
+    create_branch,
+    academy_id,
+    branch_id,
+):
+    other_branch = create_branch(academy_id=academy_id, name="Class Hidden Branch")
+    director, _ = create_identity(
+        academy_id=academy_id,
+        email="class-room-seed-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": director.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/classes")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/rooms",
+        data={
+            "branch_id": str(branch_id),
+            "room_code": "VISIBLE-R",
+            "room_name": "Visible Room",
+            "capacity": "10",
+            "room_type": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/classes")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/classes",
+        data={
+            "branch_id": str(other_branch.id),
+            "class_code": "HIDDEN-C",
+            "class_name": "Hidden Class",
+            "capacity": "10",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    client.post("/logout", data={"_csrf_token": _csrf_from_body(body)})
+
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="class-room-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/classes")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Visible Room" in body
+    assert "Hidden Class" not in body
+
+    denied = client.post(
+        f"/academies/{academy_id}/classes",
+        data={
+            "branch_id": str(other_branch.id),
+            "class_code": "DENIED-C",
+            "class_name": "Denied Class",
+            "capacity": "8",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    assert denied.status_code == 403
+    assert "permission" in denied.get_data(as_text=True).lower()
+
+
+def test_academy_director_can_create_student_user_profile_and_class_enrollment(
+    client,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    user, _ = create_identity(
+        academy_id=academy_id,
+        email="student-flow-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    classes_page = client.get(f"/academies/{academy_id}/classes")
+    body = classes_page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/classes",
+        data={
+            "branch_id": str(branch_id),
+            "class_code": "STU-C-7A",
+            "class_name": "Student Class 7A",
+            "capacity": "12",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    page = client.get(f"/academies/{academy_id}/students")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Student registration" in body
+    assert "Create student" in body
+
+    created = client.post(
+        f"/academies/{academy_id}/students",
+        data={
+            "student_code": "web-s-001",
+            "full_name": "Web Student One",
+            "birth_date": "2012-03-14",
+            "home_branch_id": str(branch_id),
+            "user_id": "",
+            "user_email": "web-student-one@example.com",
+            "user_password": "password12345",
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = created.get_data(as_text=True)
+
+    assert created.status_code == 200
+    assert "Student Web Student One berhasil dibuat." in body
+    assert "WEB-S-001" in body
+    assert "web-student-one@example.com" in body
+    assert "Class enrollment" in body
+
+    student = db.session.scalar(
+        db.select(Student).where(Student.student_code == "WEB-S-001")
+    )
+    academic_class = db.session.scalar(
+        db.select(AcademicClass).where(AcademicClass.class_code == "STU-C-7A")
+    )
+
+    enrolled = client.post(
+        f"/academies/{academy_id}/students/{student.id}/classes",
+        data={
+            "class_id": str(academic_class.id),
+            "branch_id": str(branch_id),
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = enrolled.get_data(as_text=True)
+    enrollment = db.session.scalar(
+        db.select(ClassStudent).where(
+            ClassStudent.student_id == student.id,
+            ClassStudent.class_id == academic_class.id,
+        )
+    )
+
+    assert enrolled.status_code == 200
+    assert "Student berhasil dienroll ke class." in body
+    assert "Student Class 7A" in body
+    assert enrollment.enrollment_status == "active"
+
+
+def test_branch_admin_student_registration_is_branch_scoped_and_rejects_cross_branch(
+    client,
+    create_identity,
+    create_branch,
+    academy_id,
+    branch_id,
+):
+    other_branch = create_branch(academy_id=academy_id, name="Student Hidden Branch")
+    director, _ = create_identity(
+        academy_id=academy_id,
+        email="student-scope-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": director.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/students")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/students",
+        data={
+            "student_code": "VISIBLE-S",
+            "full_name": "Visible Student",
+            "birth_date": "",
+            "home_branch_id": str(branch_id),
+            "user_id": "",
+            "user_email": "",
+            "user_password": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/students")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/students",
+        data={
+            "student_code": "HIDDEN-S",
+            "full_name": "Hidden Student",
+            "birth_date": "",
+            "home_branch_id": str(other_branch.id),
+            "user_id": "",
+            "user_email": "",
+            "user_password": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    client.post("/logout", data={"_csrf_token": _csrf_from_body(body)})
+
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="student-scope-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/students")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Visible Student" in body
+    assert "Hidden Student" not in body
+
+    denied = client.post(
+        f"/academies/{academy_id}/students",
+        data={
+            "student_code": "DENIED-S",
+            "full_name": "Denied Student",
+            "birth_date": "",
+            "home_branch_id": str(other_branch.id),
+            "user_id": "",
+            "user_email": "",
+            "user_password": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    assert denied.status_code == 403
+    assert "permission" in denied.get_data(as_text=True).lower()
+
+
+def test_academy_director_can_create_parent_link_children_and_revoke_link(
+    client,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    student_one = Student(
+        academy_id=academy_id,
+        home_branch_id=branch_id,
+        student_code="PARENT-LINK-1",
+        full_name="Linked Child One",
+        status="active",
+    )
+    student_two = Student(
+        academy_id=academy_id,
+        home_branch_id=branch_id,
+        student_code="PARENT-LINK-2",
+        full_name="Linked Child Two",
+        status="active",
+    )
+    db.session.add_all([student_one, student_two])
+    user, _ = create_identity(
+        academy_id=academy_id,
+        email="parent-flow-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/parents")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Parent registration" in body
+    assert "Create parent" in body
+
+    created = client.post(
+        f"/academies/{academy_id}/parents",
+        data={
+            "full_name": "Web Parent One",
+            "email": "web-parent-one@example.com",
+            "password": "password12345",
+            "relationship_type": "guardian",
+            "primary_contact": "on",
+            "student_id": str(student_one.id),
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = created.get_data(as_text=True)
+
+    assert created.status_code == 200
+    assert "Parent Web Parent One berhasil dibuat dan dihubungkan ke student." in body
+    assert "Linked Child One" in body
+
+    parent = db.session.scalar(
+        db.select(Parent).join(User, User.id == Parent.user_id).where(
+            User.email == "web-parent-one@example.com"
+        )
+    )
+    linked = client.post(
+        f"/academies/{academy_id}/parents/{parent.id}/students",
+        data={
+            "student_id": str(student_two.id),
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = linked.get_data(as_text=True)
+
+    assert linked.status_code == 200
+    assert "Parent-student link berhasil ditambahkan." in body
+    assert "Linked Child Two" in body
+
+    revoked = client.post(
+        f"/academies/{academy_id}/parents/{parent.id}/students/{student_one.id}/revoke",
+        data={"_csrf_token": _csrf_from_body(body)},
+        follow_redirects=True,
+    )
+    body = revoked.get_data(as_text=True)
+    inactive_link = db.session.scalar(
+        db.select(ParentStudent).where(
+            ParentStudent.parent_id == parent.id,
+            ParentStudent.student_id == student_one.id,
+        )
+    )
+
+    assert revoked.status_code == 200
+    assert "Parent-student link berhasil dicabut." in body
+    assert inactive_link.relationship_status == "inactive"
+
+    api_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "academy_id": str(academy_id),
+            "email": "web-parent-one@example.com",
+            "password": "password12345",
+        },
+    )
+    headers = {"Authorization": f"Bearer {api_login.json['data']['access_token']}"}
+    children = client.get("/api/v1/parent/children", headers=headers)
+    allowed = client.get(
+        f"/api/v1/parent/children/{student_two.id}/overview",
+        headers=headers,
+    )
+    denied = client.get(
+        f"/api/v1/parent/children/{student_one.id}/overview",
+        headers=headers,
+    )
+
+    assert children.status_code == 200
+    assert children.json["data"][0]["full_name"] == "Linked Child Two"
+    assert allowed.status_code == 200
+    assert denied.status_code == 403
+
+
+def test_branch_admin_parent_registration_is_branch_scoped_and_rejects_cross_branch(
+    client,
+    create_identity,
+    create_branch,
+    academy_id,
+    branch_id,
+):
+    other_branch = create_branch(academy_id=academy_id, name="Parent Hidden Branch")
+    visible_student = Student(
+        academy_id=academy_id,
+        home_branch_id=branch_id,
+        student_code="PARENT-VISIBLE",
+        full_name="Parent Visible Child",
+        status="active",
+    )
+    hidden_student = Student(
+        academy_id=academy_id,
+        home_branch_id=other_branch.id,
+        student_code="PARENT-HIDDEN",
+        full_name="Parent Hidden Child",
+        status="active",
+    )
+    db.session.add_all([visible_student, hidden_student])
+    director, _ = create_identity(
+        academy_id=academy_id,
+        email="parent-scope-director@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": director.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/parents")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/parents",
+        data={
+            "full_name": "Visible Parent",
+            "email": "visible-parent@example.com",
+            "password": "password12345",
+            "relationship_type": "guardian",
+            "primary_contact": "on",
+            "student_id": str(visible_student.id),
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/parents")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/parents",
+        data={
+            "full_name": "Hidden Parent",
+            "email": "hidden-parent@example.com",
+            "password": "password12345",
+            "relationship_type": "guardian",
+            "primary_contact": "on",
+            "student_id": str(hidden_student.id),
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    client.post("/logout", data={"_csrf_token": _csrf_from_body(body)})
+
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="parent-scope-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/parents")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Visible Parent" in body
+    assert "Hidden Parent" not in body
+
+    denied = client.post(
+        f"/academies/{academy_id}/parents",
+        data={
+            "full_name": "Denied Parent",
+            "email": "denied-parent@example.com",
+            "password": "password12345",
+            "relationship_type": "guardian",
+            "primary_contact": "on",
+            "student_id": str(hidden_student.id),
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    assert denied.status_code == 403
+    assert "permission" in denied.get_data(as_text=True).lower()
 
 
 def test_teacher_dashboard_shows_daily_workflow(client, create_identity, academy_id):

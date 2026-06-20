@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Teacher Registration - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Teacher registration</p>
+        <h1>{{ academy.name }} Teachers</h1>
+        <p class="lead">Create teacher users and profiles, assign teachers to active branches, and keep branch visibility clean before classes and schedules begin.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="primary-link" href="{{ url_for('class_room_setup_page', academy_id=academy.id) }}">Class and room</a>
+        <a class="primary-link" href="{{ url_for('internal_team_page', academy_id=academy.id) }}">Internal team</a>
+        <a class="secondary-link" href="{{ url_for('academy_setup_page', academy_id=academy.id) }}">Academy setup</a>
+        {% if can_access_tenants %}
+          <a class="secondary-link" href="{{ url_for('tenant_registration_page') }}">Tenant list</a>
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Create teacher</p>
+          <h2>User and profile</h2>
+        </div>
+        {% if can_create_teacher and branches %}
+          <form class="tenant-form teacher-create-form" method="post" action="{{ url_for('teacher_create_submit', academy_id=academy.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row form-row-wide">
+              <label>
+                Teacher code
+                <input name="teacher_code" value="{{ teacher_form.teacher_code }}" required placeholder="T-001">
+              </label>
+              <label>
+                Branch
+                <select name="branch_id" required>
+                  {% for branch in branches %}
+                    <option value="{{ branch.id }}" {% if teacher_form.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <label>
+              Full name
+              <input name="full_name" value="{{ teacher_form.full_name }}" required autocomplete="name" placeholder="Rina English">
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                Employment status
+                <select name="employment_status" required>
+                  {% for status in employment_statuses %}
+                    <option value="{{ status }}" {% if teacher_form.employment_status == status %}selected{% endif %}>{{ status }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                Specialization
+                <input name="specialization" value="{{ teacher_form.specialization }}" placeholder="English, Math, IELTS">
+              </label>
+            </div>
+            <label>
+              Existing login user
+              <select name="user_id">
+                <option value="">Create profile without existing login</option>
+                {% for item in user_options %}
+                  <option value="{{ item.id }}" {% if teacher_form.user_id == item.id %}selected{% endif %}>{{ item.full_name }} / {{ item.email }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                New login email
+                <input name="user_email" value="{{ teacher_form.user_email }}" type="email" autocomplete="email" placeholder="teacher@example.com">
+              </label>
+              <label>
+                Temporary password
+                <input name="user_password" value="{{ teacher_form.user_password }}" type="password" minlength="12" autocomplete="new-password" placeholder="optional">
+              </label>
+            </div>
+            <p class="form-note">Teacher dashboard role is class-scoped and will be assigned after class setup creates the first real teaching scope.</p>
+            <button class="primary-button" type="submit">Create teacher</button>
+          </form>
+        {% elif branches %}
+          <div class="empty-state">
+            <h3>Teacher creation is locked</h3>
+            <p>Your active role can review teacher setup, but cannot create teacher profiles in this branch scope.</p>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No active branch available</h3>
+            <p>Create an active branch before registering teachers.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Teacher list</p>
+          <h2>Visible teachers</h2>
+        </div>
+        {% if teachers %}
+          <div class="team-list">
+            {% for teacher in teachers %}
+              <article class="team-item">
+                <div>
+                  <h3><a class="state-link" href="{{ url_for('teacher_detail_page', academy_id=academy.id, teacher_id=teacher.id) }}">{{ teacher.full_name }}</a></h3>
+                  <p>{{ teacher.teacher_code }} / {{ teacher.employment_status }}</p>
+                </div>
+                <div class="team-scope">
+                  <span>Active branches</span>
+                  <strong>
+                    {% set active_count = namespace(value=0) %}
+                    {% for assignment in teacher.branch_assignments %}
+                      {% if assignment.assignment_status == "active" and assignment.branch_id in branch_by_id %}
+                        {% set active_count.value = active_count.value + 1 %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ active_count.value }}
+                  </strong>
+                </div>
+                <a class="secondary-link" href="{{ url_for('teacher_detail_page', academy_id=academy.id, teacher_id=teacher.id) }}">Detail</a>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No teacher registered yet</h3>
+            <p>Create the first teacher profile and branch assignment so the next class setup can select a real teacher.</p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Teacher detail</p>
+        <h2>{{ selected_teacher.full_name if selected_teacher else "No teacher selected" }}</h2>
+      </div>
+      {% if selected_teacher %}
+        <div class="tenant-grid">
+          <form class="tenant-form" method="post" action="{{ url_for('teacher_update_submit', academy_id=academy.id, teacher_id=selected_teacher.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label>
+              Full name
+              <input name="full_name" value="{{ selected_teacher.full_name }}" required {% if not can_edit_teacher(selected_teacher) %}disabled{% endif %}>
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                Employment status
+                <select name="employment_status" required {% if not can_edit_teacher(selected_teacher) %}disabled{% endif %}>
+                  {% for status in employment_statuses %}
+                    <option value="{{ status }}" {% if selected_teacher.employment_status == status %}selected{% endif %}>{{ status }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                Specialization
+                <input name="specialization" value="{{ selected_teacher.specialization or '' }}" {% if not can_edit_teacher(selected_teacher) %}disabled{% endif %}>
+              </label>
+            </div>
+            {% if selected_teacher.user %}
+              <p class="form-note">Login user: {{ selected_teacher.user.email }}</p>
+            {% else %}
+              <p class="form-note">No login user is linked to this teacher profile yet.</p>
+            {% endif %}
+            {% if can_edit_teacher(selected_teacher) %}
+              <button class="primary-button" type="submit">Save teacher</button>
+            {% endif %}
+          </form>
+
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Branch assignment</p>
+              <h2>Active or ended state</h2>
+            </div>
+            {% if branches %}
+              <form class="tenant-form" method="post" action="{{ url_for('teacher_branch_assign_submit', academy_id=academy.id, teacher_id=selected_teacher.id) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <label>
+                  Branch
+                  <select name="branch_id" required>
+                    <option value="">Select branch</option>
+                    {% for branch in branches %}
+                      {% if can_assign_teacher_branch(branch.id) %}
+                        <option value="{{ branch.id }}" {% if branch_form.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                      {% endif %}
+                    {% endfor %}
+                  </select>
+                </label>
+                <button class="primary-button" type="submit">Assign branch</button>
+              </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="team-list state-panel">
+          {% for assignment in selected_teacher.branch_assignments %}
+            {% if assignment.branch_id in branch_by_id %}
+              <article class="team-item">
+                <div>
+                  <h3>{{ branch_by_id[assignment.branch_id].name }}</h3>
+                  <p>{{ assignment.assigned_at.strftime("%Y-%m-%d") if assignment.assigned_at else "Assigned" }}</p>
+                </div>
+                <div class="team-scope">
+                  <span>Assignment</span>
+                  <strong>{{ assignment.assignment_status }}</strong>
+                </div>
+                {% if assignment.assignment_status == "active" and can_assign_teacher_branch(assignment.branch_id) %}
+                  <form class="inline-danger-form" method="post" action="{{ url_for('teacher_branch_end_submit', academy_id=academy.id, teacher_id=selected_teacher.id, branch_id=assignment.branch_id) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <button class="danger-button" type="submit">End assignment</button>
+                  </form>
+                {% endif %}
+              </article>
+            {% endif %}
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>Teacher detail is empty</h3>
+          <p>Select or create a teacher to review profile, login linkage, and branch assignment state.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

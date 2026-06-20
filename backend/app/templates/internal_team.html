@@ -12,6 +12,7 @@
       </div>
       <div class="hero-actions">
         <a class="primary-link" href="{{ url_for('academy_setup_page', academy_id=academy.id) }}">Academy setup</a>
+        <a class="secondary-link" href="{{ url_for('teacher_registration_page', academy_id=academy.id) }}">Teacher registration</a>
         {% if can_access_tenants %}
           <a class="secondary-link" href="{{ url_for('tenant_registration_page') }}">Tenant list</a>
         {% endif %}
@@ -166,7 +167,7 @@
       <div class="state-grid">
         <article class="state-item">
           <span>Teacher</span>
-          <h3>Register teachers</h3>
+          <h3><a class="state-link" href="{{ url_for('teacher_registration_page', academy_id=academy.id) }}">Register teachers</a></h3>
           <p>Create teacher profile and branch assignment before classes and schedules.</p>
         </article>
         <article class="state-item">

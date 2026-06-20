@@ -93,6 +93,22 @@ Menyambungkan workflow SaaS end-to-end mulai dari tenant registration sebelum me
 - [x] Tambahkan scope handling untuk Academy Director, Branch Manager, dan Branch Admin.
 - [x] Tambahkan web coverage untuk create, assign, revoke, invalid scope, Academy Director access, dan Branch Admin denied.
 - [x] Tambahkan desktop/mobile UI quality coverage untuk internal team setup.
+- [x] Implement Phase CW5 Teacher Registration baseline.
+- [x] Tambahkan `/academies/<academy_id>/teachers` untuk create teacher, list/detail, branch assignment, dan ended assignment state.
+- [x] Tambahkan web coverage untuk teacher user/profile creation, branch assignment ending, branch-scoped visibility, dan cross-branch denial.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk teacher registration.
+- [x] Implement Phase CW6 Class And Room Setup baseline.
+- [x] Tambahkan `/academies/<academy_id>/classes` untuk room create/list/edit dan class create/list/edit dalam branch scope.
+- [x] Tambahkan web coverage untuk room/class creation, branch-scoped visibility, dan cross-branch denial.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk class and room setup.
+- [x] Implement Phase CW7 Student Registration baseline.
+- [x] Tambahkan `/academies/<academy_id>/students` untuk create student, list/detail, dan class enrollment.
+- [x] Tambahkan web coverage untuk student user/profile creation, class enrollment, branch-scoped visibility, dan cross-branch denial.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk student registration.
+- [x] Implement Phase CW8 Parent Registration And Child Link baseline.
+- [x] Tambahkan `/academies/<academy_id>/parents` untuk create parent, child link, multi-child support, dan revoke link.
+- [x] Tambahkan web coverage untuk parent creation, multi-child link, link revoke, branch-scoped visibility, cross-branch denial, dan revoked/unlinked access denial.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk parent registration.
 
 ## Skipped / Deferred Items
 
@@ -118,7 +134,7 @@ Menyambungkan workflow SaaS end-to-end mulai dari tenant registration sebelum me
 - [ ] GitHub Actions belum bisa hijau karena runner tidak start akibat billing issue, bukan karena test/code failure.
 - [ ] Phase F3 readiness gate implemented, tetapi keputusan mulai Next.js masih blocked oleh CI/staging eksternal.
 - [ ] Phase F5 masih berlanjut, tetapi urutan eksekusi sekarang mengikuti `CONNECTED_SAAS_WORKFLOW_ROADMAP.md`.
-- [ ] Next workflow utama adalah Phase CW5 - Teacher Registration.
+- [ ] Next workflow utama adalah Phase CW9 - First Schedule Creation.
 - [ ] Cross-browser sign-off selain Chromium masih release activity eksternal jika CI nanti memasang Firefox/WebKit.
 
 ## Next Actions
@@ -142,10 +158,14 @@ Menyambungkan workflow SaaS end-to-end mulai dari tenant registration sebelum me
 - [x] Lanjutkan Phase CW2 Initial Academy Setup.
 - [x] Lanjutkan Phase CW3 Branch Setup.
 - [x] Lanjutkan Phase CW4 Internal Role Setup.
-- [ ] Lanjutkan Phase CW5 Teacher Registration.
+- [x] Lanjutkan Phase CW5 Teacher Registration.
+- [x] Lanjutkan Phase CW6 Class And Room Setup.
+- [x] Lanjutkan Phase CW7 Student Registration.
+- [x] Lanjutkan Phase CW8 Parent Registration And Child Link.
+- [ ] Lanjutkan Phase CW9 First Schedule Creation.
 - [ ] Setelah CW1-CW10 hidup, lanjutkan Phase F5 Branch manager approval workflow sebagai Phase CW11.
 - [x] Selesaikan Phase F6 Production Visual QA baseline.
-- [ ] Rekomendasi next step: implement Phase CW5 Teacher Registration sambil tetap unblock GitHub Actions billing dan PostgreSQL staging validation.
+- [ ] Rekomendasi next step: implement Phase CW9 First Schedule Creation sambil tetap unblock GitHub Actions billing dan PostgreSQL staging validation.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
 - [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.
 

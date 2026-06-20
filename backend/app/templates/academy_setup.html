@@ -200,17 +200,22 @@
         </article>
         <article class="state-item">
           <span>Teacher</span>
-          <h3>Register teachers</h3>
+          <h3><a class="state-link" href="{{ url_for('teacher_registration_page', academy_id=academy.id) }}">Register teachers</a></h3>
           <p>Teachers need branch assignment before schedules and class operations become meaningful.</p>
         </article>
         <article class="state-item">
+          <span>Class</span>
+          <h3><a class="state-link" href="{{ url_for('class_room_setup_page', academy_id=academy.id) }}">Prepare class and room</a></h3>
+          <p>Rooms and classes create the operational base for enrollment and the first schedule.</p>
+        </article>
+        <article class="state-item">
           <span>Student</span>
-          <h3>Register students</h3>
+          <h3><a class="state-link" href="{{ url_for('student_registration_page', academy_id=academy.id) }}">Register students</a></h3>
           <p>Students need home branch and class enrollment before parent and schedule flows connect.</p>
         </article>
         <article class="state-item">
           <span>Parent</span>
-          <h3>Link parent to child</h3>
+          <h3><a class="state-link" href="{{ url_for('parent_registration_page', academy_id=academy.id) }}">Link parent to child</a></h3>
           <p>Parent dashboard becomes useful only after a student relationship is active.</p>
         </article>
       </div>

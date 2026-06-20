@@ -72,3 +72,4 @@ class Teacher(db.Model):
         back_populates="teacher",
         cascade="all, delete-orphan",
     )
+    user = relationship("User")

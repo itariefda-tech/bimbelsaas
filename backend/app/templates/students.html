@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Student Registration - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Student registration</p>
+        <h1>{{ academy.name }} Students</h1>
+        <p class="lead">Create student profiles, assign a home branch, and enroll students into prepared classes before parent linking and scheduling.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="primary-link" href="{{ url_for('parent_registration_page', academy_id=academy.id) }}">Parents</a>
+        <a class="secondary-link" href="{{ url_for('class_room_setup_page', academy_id=academy.id) }}">Class and room</a>
+        <a class="secondary-link" href="{{ url_for('teacher_registration_page', academy_id=academy.id) }}">Teachers</a>
+        <a class="secondary-link" href="{{ url_for('academy_setup_page', academy_id=academy.id) }}">Academy setup</a>
+        {% if can_access_tenants %}
+          <a class="secondary-link" href="{{ url_for('tenant_registration_page') }}">Tenant list</a>
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Create student</p>
+          <h2>Profile and home branch</h2>
+        </div>
+        {% if can_create_student %}
+          <form class="tenant-form student-create-form" method="post" action="{{ url_for('student_create_submit', academy_id=academy.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row form-row-wide">
+              <label>
+                Student code
+                <input name="student_code" value="{{ student_form.student_code }}" required placeholder="S-001">
+              </label>
+              <label>
+                Home branch
+                <select name="home_branch_id" required>
+                  {% for branch in manageable_branches %}
+                    <option value="{{ branch.id }}" {% if student_form.home_branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <label>
+              Full name
+              <input name="full_name" value="{{ student_form.full_name }}" required autocomplete="name" placeholder="Alya Student">
+            </label>
+            <label>
+              Birth date
+              <input name="birth_date" value="{{ student_form.birth_date or '' }}" type="date">
+            </label>
+            <label>
+              Existing login user
+              <select name="user_id">
+                <option value="">Create profile without existing login</option>
+                {% for item in user_options %}
+                  <option value="{{ item.id }}" {% if student_form.user_id == item.id %}selected{% endif %}>{{ item.full_name }} / {{ item.email }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                New login email
+                <input name="user_email" value="{{ student_form.user_email }}" type="email" autocomplete="email" placeholder="student@example.com">
+              </label>
+              <label>
+                Temporary password
+                <input name="user_password" value="{{ student_form.user_password }}" type="password" minlength="12" autocomplete="new-password" placeholder="optional">
+              </label>
+            </div>
+            <button class="primary-button" type="submit">Create student</button>
+          </form>
+        {% elif branches %}
+          <div class="empty-state">
+            <h3>Student creation is locked</h3>
+            <p>Your active role can review students, but cannot create student profiles in this branch scope.</p>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No active branch available</h3>
+            <p>Create an active branch before registering students.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Student list</p>
+          <h2>Visible students</h2>
+        </div>
+        {% if students %}
+          <div class="team-list">
+            {% for student in students %}
+              <article class="team-item">
+                <div>
+                  <h3><a class="state-link" href="{{ url_for('student_detail_page', academy_id=academy.id, student_id=student.id) }}">{{ student.full_name }}</a></h3>
+                  <p>{{ student.student_code }} / {{ student.status }}</p>
+                </div>
+                <div class="team-scope">
+                  <span>Home branch</span>
+                  <strong>{{ branch_by_id[student.home_branch_id].name if student.home_branch_id in branch_by_id else "Hidden" }}</strong>
+                </div>
+                <a class="secondary-link" href="{{ url_for('student_detail_page', academy_id=academy.id, student_id=student.id) }}">Detail</a>
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No student registered yet</h3>
+            <p>Create the first student profile so enrollment, parent linking, and schedules can connect to real learners.</p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Student detail</p>
+        <h2>{{ selected_student.full_name if selected_student else "No student selected" }}</h2>
+      </div>
+      {% if selected_student %}
+        <div class="tenant-grid">
+          <form class="tenant-form" method="post" action="{{ url_for('student_update_submit', academy_id=academy.id, student_id=selected_student.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <label>
+              Full name
+              <input name="full_name" value="{{ selected_student.full_name }}" required {% if not can_edit_student(selected_student) %}disabled{% endif %}>
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                Birth date
+                <input name="birth_date" value="{{ selected_student.birth_date.isoformat() if selected_student.birth_date else '' }}" type="date" {% if not can_edit_student(selected_student) %}disabled{% endif %}>
+              </label>
+              <label>
+                Home branch
+                <select name="home_branch_id" required {% if not can_edit_student(selected_student) %}disabled{% endif %}>
+                  {% for branch in manageable_branches %}
+                    <option value="{{ branch.id }}" {% if selected_student.home_branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <label>
+              Login user
+              <select name="user_id" {% if not can_edit_student(selected_student) %}disabled{% endif %}>
+                <option value="">No login user</option>
+                {% for item in user_options %}
+                  <option value="{{ item.id }}" {% if selected_student.user_id == item.id %}selected{% endif %}>{{ item.full_name }} / {{ item.email }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            {% if can_edit_student(selected_student) %}
+              <button class="primary-button" type="submit">Save student</button>
+            {% else %}
+              <p class="form-note">Student editing is read-only for this role or branch scope.</p>
+            {% endif %}
+          </form>
+
+          <div>
+            <div class="section-heading">
+              <p class="eyebrow">Class enrollment</p>
+              <h2>Prepared classes</h2>
+            </div>
+            {% if available_class_options %}
+              <form class="tenant-form student-enrollment-form" method="post" action="{{ url_for('student_class_enroll_submit', academy_id=academy.id, student_id=selected_student.id) }}">
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                <label>
+                  Class
+                  <select name="class_id" required>
+                    {% for academic_class in available_class_options %}
+                      <option value="{{ academic_class.id }}" data-branch-id="{{ academic_class.branch_id }}" {% if enrollment_form.class_id == academic_class.id %}selected{% endif %}>{{ academic_class.class_name }} / {{ branch_by_id[academic_class.branch_id].name }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <label>
+                  Branch
+                  <select name="branch_id" required>
+                    {% for academic_class in available_class_options %}
+                      <option value="{{ academic_class.branch_id }}" {% if enrollment_form.branch_id == academic_class.branch_id %}selected{% endif %}>{{ academic_class.class_name }} branch</option>
+                    {% endfor %}
+                  </select>
+                </label>
+                <button class="primary-button" type="submit">Enroll student</button>
+              </form>
+            {% else %}
+              <div class="empty-state">
+                <h3>No available class</h3>
+                <p>Create a branch class or review active enrollments before adding another enrollment.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="team-list state-panel">
+          {% for enrollment in selected_enrollments %}
+            {% if enrollment.class_id in enrollment_by_class_id %}
+              {% for branch in branches %}
+                {% for academic_class in classes_by_branch[branch.id] %}
+                  {% if academic_class.id == enrollment.class_id %}
+                    <article class="team-item">
+                      <div>
+                        <h3>{{ academic_class.class_name }}</h3>
+                        <p>{{ academic_class.class_code }} / {{ branch.name }}</p>
+                      </div>
+                      <div class="team-scope">
+                        <span>Enrollment</span>
+                        <strong>{{ enrollment.enrollment_status }}</strong>
+                      </div>
+                    </article>
+                  {% endif %}
+                {% endfor %}
+              {% endfor %}
+            {% endif %}
+          {% endfor %}
+          {% if not enrollment_by_class_id %}
+            <div class="empty-state">
+              <h3>No active class enrollment</h3>
+              <p>Enroll the student into a prepared class so schedules can include this learner.</p>
+            </div>
+          {% endif %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>Student detail is empty</h3>
+          <p>Select or create a student to review profile, home branch, login linkage, and class enrollment state.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}
