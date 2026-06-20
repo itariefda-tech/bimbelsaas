@@ -109,6 +109,11 @@ Menyambungkan workflow SaaS end-to-end mulai dari tenant registration sebelum me
 - [x] Tambahkan `/academies/<academy_id>/parents` untuk create parent, child link, multi-child support, dan revoke link.
 - [x] Tambahkan web coverage untuk parent creation, multi-child link, link revoke, branch-scoped visibility, cross-branch denial, dan revoked/unlinked access denial.
 - [x] Tambahkan desktop/mobile UI quality coverage untuk parent registration.
+- [x] Implement Phase CW9 First Schedule Creation baseline.
+- [x] Tambahkan `/academies/<academy_id>/schedules` untuk create schedule, conflict validation result, list/detail, dan session operational context.
+- [x] Tambahkan dashboard visibility untuk schedule di Teacher, Student, Parent, Branch Admin, Branch Manager, dan Academy Director.
+- [x] Tambahkan web coverage untuk schedule creation, conflict result UI, branch-scope denial, dan role dashboard visibility.
+- [x] Tambahkan desktop/mobile UI quality coverage untuk schedule creation.
 
 ## Skipped / Deferred Items
 
@@ -134,7 +139,7 @@ Menyambungkan workflow SaaS end-to-end mulai dari tenant registration sebelum me
 - [ ] GitHub Actions belum bisa hijau karena runner tidak start akibat billing issue, bukan karena test/code failure.
 - [ ] Phase F3 readiness gate implemented, tetapi keputusan mulai Next.js masih blocked oleh CI/staging eksternal.
 - [ ] Phase F5 masih berlanjut, tetapi urutan eksekusi sekarang mengikuti `CONNECTED_SAAS_WORKFLOW_ROADMAP.md`.
-- [ ] Next workflow utama adalah Phase CW9 - First Schedule Creation.
+- [ ] Next workflow utama adalah Phase CW10 - Daily Operations.
 - [ ] Cross-browser sign-off selain Chromium masih release activity eksternal jika CI nanti memasang Firefox/WebKit.
 
 ## Next Actions
@@ -162,10 +167,11 @@ Menyambungkan workflow SaaS end-to-end mulai dari tenant registration sebelum me
 - [x] Lanjutkan Phase CW6 Class And Room Setup.
 - [x] Lanjutkan Phase CW7 Student Registration.
 - [x] Lanjutkan Phase CW8 Parent Registration And Child Link.
-- [ ] Lanjutkan Phase CW9 First Schedule Creation.
+- [x] Lanjutkan Phase CW9 First Schedule Creation.
+- [ ] Lanjutkan Phase CW10 Daily Operations.
 - [ ] Setelah CW1-CW10 hidup, lanjutkan Phase F5 Branch manager approval workflow sebagai Phase CW11.
 - [x] Selesaikan Phase F6 Production Visual QA baseline.
-- [ ] Rekomendasi next step: implement Phase CW9 First Schedule Creation sambil tetap unblock GitHub Actions billing dan PostgreSQL staging validation.
+- [ ] Rekomendasi next step: implement Phase CW10 Daily Operations sambil tetap unblock GitHub Actions billing dan PostgreSQL staging validation.
 - [ ] Tambahkan minimal E2E test untuk login web dan dashboard role.
 - [x] Audit security session cookie, CSRF untuk form web, dan password/credential policy sebelum beta publik.
 

@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import uuid4
 
 from app import create_app
@@ -11,6 +12,7 @@ from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
 from app.models.role_assignment import RoleAssignment
 from app.models.room import Room
+from app.models.schedule import Schedule
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.models.teacher_branch import TeacherBranch
@@ -30,6 +32,111 @@ def _csrf_from_body(body):
     start = body.index(marker) + len(marker)
     end = body.index('"', start)
     return body[start:end]
+
+
+def _seed_schedule_ready_context(identity, academy_id, branch_id, *, suffix="001"):
+    teacher_user = identity.create_user(
+        academy_id=academy_id,
+        email=f"cw9-teacher-{suffix}@example.com",
+        password="password12345",
+        full_name=f"CW9 Teacher {suffix}",
+    )
+    student_user = identity.create_user(
+        academy_id=academy_id,
+        email=f"cw9-student-{suffix}@example.com",
+        password="password12345",
+        full_name=f"CW9 Student {suffix}",
+    )
+    parent_user = identity.create_user(
+        academy_id=academy_id,
+        email=f"cw9-parent-{suffix}@example.com",
+        password="password12345",
+        full_name=f"CW9 Parent {suffix}",
+    )
+    academic_class = AcademicClass(
+        academy_id=academy_id,
+        branch_id=branch_id,
+        class_code=f"CW9-C-{suffix}".upper(),
+        class_name=f"CW9 Class {suffix}",
+        capacity=12,
+        status="active",
+    )
+    room = Room(
+        academy_id=academy_id,
+        branch_id=branch_id,
+        room_code=f"CW9-R-{suffix}".upper(),
+        room_name=f"CW9 Room {suffix}",
+        capacity=16,
+        status="available",
+    )
+    teacher = Teacher(
+        academy_id=academy_id,
+        user_id=teacher_user.id,
+        teacher_code=f"CW9-T-{suffix}".upper(),
+        full_name=f"CW9 Teacher {suffix}",
+        status="active",
+        employment_status="active",
+    )
+    student = Student(
+        academy_id=academy_id,
+        user_id=student_user.id,
+        student_code=f"CW9-S-{suffix}".upper(),
+        full_name=f"CW9 Student {suffix}",
+        home_branch_id=branch_id,
+        status="active",
+    )
+    db.session.add_all([academic_class, room, teacher, student])
+    db.session.flush()
+    db.session.add(
+        TeacherBranch(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            teacher_id=teacher.id,
+            assignment_status="active",
+        )
+    )
+    db.session.add(
+        ClassStudent(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            class_id=academic_class.id,
+            student_id=student.id,
+            enrollment_status="active",
+        )
+    )
+    db.session.flush()
+    identity.assign_role(
+        user=teacher_user,
+        role=Role.TEACHER,
+        scope_type=ScopeType.ASSIGNED_CLASS,
+        academy_id=academy_id,
+        branch_id=branch_id,
+        scope_id=academic_class.id,
+    )
+    identity.assign_role(
+        user=student_user,
+        role=Role.STUDENT,
+        scope_type=ScopeType.SELF,
+        academy_id=academy_id,
+    )
+    identity.assign_role(
+        user=parent_user,
+        role=Role.PARENT,
+        scope_type=ScopeType.LINKED_STUDENT,
+        academy_id=academy_id,
+        branch_id=branch_id,
+        scope_id=student.id,
+    )
+    db.session.commit()
+    return {
+        "teacher_user": teacher_user,
+        "student_user": student_user,
+        "parent_user": parent_user,
+        "teacher": teacher,
+        "student": student,
+        "academic_class": academic_class,
+        "room": room,
+    }
 
 
 def test_login_rejects_missing_csrf_token(client):
@@ -1815,6 +1922,268 @@ def test_branch_admin_dashboard_shows_operational_workflow(
     assert "Find the student, parent, class, or invoice first" in body
     assert "Branch admin operational states" in body
     assert "Outside branch scope" in body
+
+
+def test_branch_admin_can_create_first_schedule_and_detail_from_web(
+    client,
+    identity,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    context = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="CREATE")
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="cw9-admin-create@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "First schedule creation" in body
+    assert "Conflict validation" in body
+
+    created = client.post(
+        f"/academies/{academy_id}/schedules",
+        data={
+            "branch_id": str(branch_id),
+            "class_id": str(context["academic_class"].id),
+            "teacher_id": str(context["teacher"].id),
+            "room_id": str(context["room"].id),
+            "starts_at": "2026-07-01T09:00",
+            "ends_at": "2026-07-01T10:30",
+            "timezone": "Asia/Jakarta",
+            "status": "scheduled",
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = created.get_data(as_text=True)
+    schedule = db.session.scalar(
+        db.select(Schedule).where(
+            Schedule.academy_id == academy_id,
+            Schedule.class_id == context["academic_class"].id,
+        )
+    )
+
+    assert created.status_code == 200
+    assert "Schedule pertama berhasil dibuat" in body
+    assert "CW9 Class CREATE" in body
+    assert "CW9 Teacher CREATE" in body
+    assert "CW9 Room CREATE" in body
+    assert schedule is not None
+    assert schedule.session is not None
+    assert schedule.session.status == "scheduled"
+
+
+def test_schedule_creation_shows_conflict_validation_result(
+    client,
+    identity,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    context = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="CONFLICT")
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="cw9-admin-conflict@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+    payload = {
+        "branch_id": str(branch_id),
+        "class_id": str(context["academic_class"].id),
+        "teacher_id": str(context["teacher"].id),
+        "room_id": str(context["room"].id),
+        "starts_at": "2026-07-02T09:00",
+        "ends_at": "2026-07-02T10:30",
+        "timezone": "Asia/Jakarta",
+        "status": "scheduled",
+        "_csrf_token": _csrf_from_body(body),
+    }
+    client.post(f"/academies/{academy_id}/schedules", data=payload)
+    page = client.get(f"/academies/{academy_id}/schedules")
+    payload["_csrf_token"] = _csrf_from_body(page.get_data(as_text=True))
+
+    conflicted = client.post(
+        f"/academies/{academy_id}/schedules",
+        data=payload,
+    )
+    body = conflicted.get_data(as_text=True)
+
+    assert conflicted.status_code == 409
+    assert "Teacher already has an overlapping schedule." in body
+    assert "Conflict stage: teacher / code: teacher_schedule_conflict." in body
+
+
+def test_branch_admin_schedule_creation_rejects_cross_branch_resource(
+    client,
+    identity,
+    create_identity,
+    create_branch,
+    academy_id,
+    branch_id,
+):
+    other_branch = create_branch(academy_id=academy_id, name="CW9 Hidden Branch")
+    visible = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="VISIBLE")
+    hidden = _seed_schedule_ready_context(identity, academy_id, other_branch.id, suffix="HIDDEN")
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="cw9-admin-scope@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+
+    assert "CW9 Class VISIBLE" in body
+    assert "CW9 Class HIDDEN" not in body
+
+    denied = client.post(
+        f"/academies/{academy_id}/schedules",
+        data={
+            "branch_id": str(other_branch.id),
+            "class_id": str(hidden["academic_class"].id),
+            "teacher_id": str(hidden["teacher"].id),
+            "room_id": str(hidden["room"].id),
+            "starts_at": "2026-07-03T09:00",
+            "ends_at": "2026-07-03T10:30",
+            "timezone": "Asia/Jakarta",
+            "status": "scheduled",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    assert denied.status_code == 403
+    assert "permission" in denied.get_data(as_text=True).lower()
+    assert visible["academic_class"].class_name == "CW9 Class VISIBLE"
+
+
+def test_created_schedule_is_visible_on_role_dashboards(
+    client,
+    identity,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    context = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="DASH")
+    manager, _ = create_identity(
+        academy_id=academy_id,
+        email="cw9-manager-dashboard@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_MANAGER,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": manager.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/schedules",
+        data={
+            "branch_id": str(branch_id),
+            "class_id": str(context["academic_class"].id),
+            "teacher_id": str(context["teacher"].id),
+            "room_id": str(context["room"].id),
+            "starts_at": "2026-07-04T09:00",
+            "ends_at": "2026-07-04T10:30",
+            "timezone": "Asia/Jakarta",
+            "status": "scheduled",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    for email, dashboard in [
+        (manager.email, "/dashboard/branch_manager"),
+        (context["teacher_user"].email, "/dashboard/teacher"),
+        (context["student_user"].email, "/dashboard/student"),
+        (context["parent_user"].email, "/dashboard/parent"),
+    ]:
+        with client.session_transaction() as session:
+            session.clear()
+        csrf = _csrf_from_login_page(client)
+        client.post(
+            "/login",
+            data={
+                "email": email,
+                "password": "password12345",
+                "_csrf_token": csrf,
+            },
+        )
+        response = client.get(dashboard)
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "Upcoming schedule" in body
+        assert "CW9 Class DASH" in body
+        assert "CW9 Teacher DASH" in body
+        assert "CW9 Room DASH" in body
 
 
 def test_session_cookie_security_defaults():

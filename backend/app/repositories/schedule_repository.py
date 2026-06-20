@@ -2,6 +2,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import distinct, select
+from sqlalchemy.orm import joinedload
 
 from app.domain.scheduling_status import BLOCKING_SCHEDULE_STATUSES, EnrollmentStatus
 from app.extensions import db
@@ -23,7 +24,7 @@ class ScheduleRepository(BaseRepository[Schedule]):
         schedule_id: UUID,
     ) -> Schedule | None:
         return db.session.scalar(
-            select(Schedule).where(
+            self._with_details().where(
                 Schedule.id == schedule_id,
                 Schedule.academy_id == academy_id,
                 Schedule.branch_id == branch_id,
@@ -53,7 +54,7 @@ class ScheduleRepository(BaseRepository[Schedule]):
     ) -> list[Schedule]:
         return list(
             db.session.scalars(
-                select(Schedule)
+                self._with_details()
                 .where(
                     Schedule.academy_id == academy_id,
                     Schedule.branch_id == branch_id,
@@ -71,7 +72,7 @@ class ScheduleRepository(BaseRepository[Schedule]):
     ) -> list[Schedule]:
         return list(
             db.session.scalars(
-                select(Schedule)
+                self._with_details()
                 .where(
                     Schedule.academy_id == academy_id,
                     Schedule.teacher_id == teacher_id,
@@ -80,6 +81,52 @@ class ScheduleRepository(BaseRepository[Schedule]):
                 )
                 .order_by(Schedule.starts_at, Schedule.id)
             )
+        )
+
+    def list_for_student_window(
+        self,
+        academy_id: UUID,
+        student_id: UUID,
+        starts_at: datetime,
+        ends_at: datetime,
+    ) -> list[Schedule]:
+        return list(
+            db.session.scalars(
+                self._with_details()
+                .join(ClassStudent, ClassStudent.class_id == Schedule.class_id)
+                .where(
+                    Schedule.academy_id == academy_id,
+                    ClassStudent.academy_id == academy_id,
+                    ClassStudent.student_id == student_id,
+                    ClassStudent.enrollment_status == EnrollmentStatus.ACTIVE,
+                    Schedule.starts_at < ends_at,
+                    Schedule.ends_at > starts_at,
+                )
+                .distinct()
+                .order_by(Schedule.starts_at, Schedule.id)
+            ).unique()
+        )
+
+    def list_for_branches_window(
+        self,
+        academy_id: UUID,
+        branch_ids: set[UUID],
+        starts_at: datetime,
+        ends_at: datetime,
+    ) -> list[Schedule]:
+        if not branch_ids:
+            return []
+        return list(
+            db.session.scalars(
+                self._with_details()
+                .where(
+                    Schedule.academy_id == academy_id,
+                    Schedule.branch_id.in_(branch_ids),
+                    Schedule.starts_at < ends_at,
+                    Schedule.ends_at > starts_at,
+                )
+                .order_by(Schedule.starts_at, Schedule.id)
+            ).unique()
         )
 
     def overlapping_for_teacher(
@@ -201,6 +248,15 @@ class ScheduleRepository(BaseRepository[Schedule]):
         if exclude_schedule_id is not None:
             query = query.where(Schedule.id != exclude_schedule_id)
         return list(db.session.scalars(query))
+
+    @staticmethod
+    def _with_details():
+        return select(Schedule).options(
+            joinedload(Schedule.academic_class),
+            joinedload(Schedule.teacher),
+            joinedload(Schedule.room),
+            joinedload(Schedule.session),
+        )
 
 
 class ClassSessionRepository(BaseRepository[ClassSession]):

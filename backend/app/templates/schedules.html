@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}First Schedule Creation - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">First schedule creation</p>
+        <h1>{{ academy.name }} Schedule</h1>
+        <p class="lead">Create the first operational session from the same branch, class, teacher, room, student, and parent workflow.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="primary-link" href="{{ url_for('parent_registration_page', academy_id=academy.id) }}">Parents</a>
+        <a class="secondary-link" href="{{ url_for('student_registration_page', academy_id=academy.id) }}">Students</a>
+        <a class="secondary-link" href="{{ url_for('class_room_setup_page', academy_id=academy.id) }}">Classes</a>
+        {% if can_access_tenants %}
+          <a class="secondary-link" href="{{ url_for('tenant_registration_page') }}">Tenant list</a>
+        {% endif %}
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Create schedule</p>
+          <h2>Operational session</h2>
+        </div>
+        {% if manageable_branches %}
+          <form class="tenant-form schedule-create-form" method="post" action="{{ url_for('schedule_create_submit', academy_id=academy.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="form-row form-row-wide">
+              <label>
+                Branch
+                <select name="branch_id" required>
+                  {% for branch in manageable_branches %}
+                    <option value="{{ branch.id }}" {% if schedule_form.branch_id == branch.id %}selected{% endif %}>{{ branch.name }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                Status
+                <select name="status" required>
+                  <option value="scheduled" {% if schedule_form.status == "scheduled" %}selected{% endif %}>scheduled</option>
+                  <option value="draft" {% if schedule_form.status == "draft" %}selected{% endif %}>draft</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              Class
+              <select name="class_id" required>
+                {% for branch in manageable_branches %}
+                  {% if classes_by_branch[branch.id] %}
+                    <optgroup label="{{ branch.name }}">
+                      {% for academic_class in classes_by_branch[branch.id] %}
+                        <option value="{{ academic_class.id }}" {% if schedule_form.class_id == academic_class.id %}selected{% endif %}>{{ academic_class.class_name }} / {{ academic_class.class_code }}</option>
+                      {% endfor %}
+                    </optgroup>
+                  {% endif %}
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Teacher
+              <select name="teacher_id" required>
+                {% for branch in manageable_branches %}
+                  {% if teachers_by_branch[branch.id] %}
+                    <optgroup label="{{ branch.name }}">
+                      {% for teacher in teachers_by_branch[branch.id] %}
+                        <option value="{{ teacher.id }}" {% if schedule_form.teacher_id == teacher.id %}selected{% endif %}>{{ teacher.full_name }} / {{ teacher.teacher_code }}</option>
+                      {% endfor %}
+                    </optgroup>
+                  {% endif %}
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              Room
+              <select name="room_id" required>
+                {% for branch in manageable_branches %}
+                  {% if rooms_by_branch[branch.id] %}
+                    <optgroup label="{{ branch.name }}">
+                      {% for room in rooms_by_branch[branch.id] %}
+                        <option value="{{ room.id }}" {% if schedule_form.room_id == room.id %}selected{% endif %}>{{ room.room_name }} / capacity {{ room.capacity }}</option>
+                      {% endfor %}
+                    </optgroup>
+                  {% endif %}
+                {% endfor %}
+              </select>
+            </label>
+            <div class="form-row form-row-wide">
+              <label>
+                Starts at
+                <input name="starts_at" type="datetime-local" value="{{ datetime_local_value(schedule_form.starts_at) }}" required>
+              </label>
+              <label>
+                Ends at
+                <input name="ends_at" type="datetime-local" value="{{ datetime_local_value(schedule_form.ends_at) }}" required>
+              </label>
+            </div>
+            <label>
+              Timezone
+              <input name="timezone" value="{{ schedule_form.timezone }}" required>
+            </label>
+            <button class="primary-button" type="submit">Create schedule</button>
+          </form>
+        {% elif branches %}
+          <div class="empty-state">
+            <h3>Schedule creation is locked</h3>
+            <p>Your active role can review schedule visibility, but cannot create schedules in this branch scope.</p>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No active branch available</h3>
+            <p>Create a branch, class, teacher, room, student, and parent link before scheduling the first session.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Conflict validation</p>
+          <h2>Before creation</h2>
+        </div>
+        <div class="state-grid">
+          <article class="state-item">
+            <span>Teacher</span>
+            <h3>No overlapping class</h3>
+            <p>The service blocks teachers already booked during the selected window.</p>
+          </article>
+          <article class="state-item">
+            <span>Room</span>
+            <h3>Capacity and overlap</h3>
+            <p>Room availability and active enrollment count are validated together.</p>
+          </article>
+          <article class="state-item">
+            <span>Student</span>
+            <h3>Enrollment visibility</h3>
+            <p>Enrolled students cannot be double-booked and parents see only linked child schedules.</p>
+          </article>
+        </div>
+      </section>
+    </div>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Schedule list</p>
+        <h2>Visible operational sessions</h2>
+      </div>
+      {% if schedules %}
+        <div class="team-list">
+          {% for schedule in schedules %}
+            <article class="team-item">
+              <div>
+                <h3><a class="state-link" href="{{ url_for('schedule_detail_page', academy_id=academy.id, schedule_id=schedule.id) }}">{{ schedule.academic_class.class_name if schedule.academic_class else "Class" }}</a></h3>
+                <p>{{ format_datetime(schedule.starts_at) }} - {{ format_datetime(schedule.ends_at) }}</p>
+              </div>
+              <div class="team-scope">
+                <span>Teacher</span>
+                <strong>{{ schedule.teacher.full_name if schedule.teacher else "Teacher" }}</strong>
+              </div>
+              <div class="team-scope">
+                <span>Room</span>
+                <strong>{{ schedule.room.room_name if schedule.room else "Room" }}</strong>
+              </div>
+              <div class="team-scope">
+                <span>Status</span>
+                <strong>{{ schedule.status }}</strong>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>No schedule yet</h3>
+          <p>Create the first schedule to activate Teacher, Student, Parent, Branch Admin, and Branch Manager visibility.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Schedule detail</p>
+        <h2>Dashboard-ready context</h2>
+      </div>
+      {% if selected_schedule %}
+        <div class="state-grid">
+          <article class="state-item">
+            <span>Class</span>
+            <h3>{{ selected_schedule.academic_class.class_name if selected_schedule.academic_class else "Class" }}</h3>
+            <p>{{ selected_schedule.academic_class.class_code if selected_schedule.academic_class else selected_schedule.class_id }}</p>
+          </article>
+          <article class="state-item">
+            <span>Teacher</span>
+            <h3>{{ selected_schedule.teacher.full_name if selected_schedule.teacher else "Teacher" }}</h3>
+            <p>{{ selected_schedule.teacher.teacher_code if selected_schedule.teacher else selected_schedule.teacher_id }}</p>
+          </article>
+          <article class="state-item">
+            <span>Room</span>
+            <h3>{{ selected_schedule.room.room_name if selected_schedule.room else "Room" }}</h3>
+            <p>{{ selected_schedule.room.room_code if selected_schedule.room else selected_schedule.room_id }}</p>
+          </article>
+          <article class="state-item">
+            <span>Session</span>
+            <h3>{{ selected_schedule.session.status if selected_schedule.session else "pending" }}</h3>
+            <p>{{ format_datetime(selected_schedule.starts_at) }} - {{ format_datetime(selected_schedule.ends_at) }}</p>
+          </article>
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>Schedule detail is waiting</h3>
+          <p>The first created schedule will appear here with class, teacher, room, and session state.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

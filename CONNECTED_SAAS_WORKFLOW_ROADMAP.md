@@ -390,7 +390,7 @@ Implementation notes:
 
 ## Phase CW9 - First Schedule Creation
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -414,14 +414,28 @@ Deliverables:
 - Schedule creation form.
 - Conflict result UI.
 - Schedule list/detail.
-- Reschedule entry point.
-- Cancelled/rescheduled state.
+- Dashboard visibility for created schedule.
+- Reschedule entry point deferred to CW11 approval workflow.
+- Cancelled/rescheduled state deferred to CW11 approval workflow.
 
 Acceptance criteria:
 
-- Conflict checks are visible and understandable.
-- Created schedule updates role dashboards.
-- Parent and student see schedule after linking/enrollment.
+- [x] Conflict checks are visible and understandable.
+- [x] Created schedule updates role dashboards.
+- [x] Parent and student see schedule after linking/enrollment.
+
+Implementation notes:
+
+- `/academies/<academy_id>/schedules` now provides the connected First Schedule Creation page after parent-child linking.
+- Branch Admin, Branch Manager, and Academy Director can create schedules within permitted branch scope through `ScheduleService`.
+- Schedule creation selects branch, class, teacher, room, date/time, timezone, and draft/scheduled status.
+- Conflict validation uses `ScheduleValidationService`, preserving teacher overlap, room overlap/capacity, class overlap, student overlap, branch active-state, and cross-branch checks.
+- Created schedules also create an operational `ClassSession` through the existing service path.
+- Schedule list/detail shows class, teacher, room, status, session state, and time window.
+- Teacher, Student, Parent, Branch Admin, Branch Manager, and Academy Director dashboards now expose a dashboard-ready upcoming schedule panel when visible schedules exist.
+- Branch-scoped users only see and create schedules inside visible branch scope; cross-branch creation is denied by existing authorization checks.
+- `backend/tests/test_web_security.py` covers schedule creation, detail, conflict result UI, branch scope denial, and dashboard visibility for Branch Manager, Teacher, Student, and Parent.
+- `npm run ui:quality` captures desktop/mobile schedule creation screenshots and creates a schedule from the UI.
 
 ## Phase CW10 - Daily Operations
 
@@ -601,17 +615,17 @@ Acceptance criteria:
 
 ## Recommended Immediate Sprint
 
-Continue with **Phase CW9 - First Schedule Creation**.
+Continue with **Phase CW10 - Daily Operations**.
 
-Tenant, academy, branch, internal roles, teachers, rooms, classes, students, and parent-child links now have a connected Flask UI path. The next step is creating the first schedule so Teacher, Student, Parent, Branch Admin, and Branch Manager dashboards can all show operational data from the same workflow.
+Tenant, academy, branch, internal roles, teachers, rooms, classes, students, parent-child links, and the first schedule now have a connected Flask UI path. The next step is making that scheduled session operational for attendance, lesson summaries, materials, homework, and parent/student visibility.
 
 Initial implementation target:
 
-- Schedule creation form.
-- Select class, teacher, room, date/time.
-- Conflict validation result UI.
-- Schedule list/detail.
-- Created schedule appears in role dashboards or dashboard-ready service context.
+- Teacher today timeline opens scheduled sessions.
+- Attendance UI for a created class session.
+- Lesson summary draft/publish flow.
+- Parent/student dashboards show finalized attendance and published summaries.
+- Branch Admin sees daily operational completion state.
 
 ## Definition Of Connected Done
 

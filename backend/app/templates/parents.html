@@ -11,7 +11,8 @@
         <p class="lead">Create parent logins, link parents to students, and keep child visibility limited to active parent-student relationships.</p>
       </div>
       <div class="hero-actions">
-        <a class="primary-link" href="{{ url_for('student_registration_page', academy_id=academy.id) }}">Students</a>
+        <a class="primary-link" href="{{ url_for('schedule_setup_page', academy_id=academy.id) }}">Create schedule</a>
+        <a class="secondary-link" href="{{ url_for('student_registration_page', academy_id=academy.id) }}">Students</a>
         <a class="secondary-link" href="{{ url_for('class_room_setup_page', academy_id=academy.id) }}">Class and room</a>
         <a class="secondary-link" href="{{ url_for('academy_setup_page', academy_id=academy.id) }}">Academy setup</a>
         {% if can_access_tenants %}

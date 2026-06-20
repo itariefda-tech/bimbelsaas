@@ -201,6 +201,20 @@ try {
       isMobile: true,
       mutateParent: false,
     });
+    await runScheduleCreationViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+      mutateSchedule: true,
+    });
+    await runScheduleCreationViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+      mutateSchedule: false,
+    });
     await runProductionVisualQA(browser);
   } finally {
     await browser.close();
@@ -475,6 +489,97 @@ async function runParentRegistrationViewport(browser, viewport) {
     await expectNoImportantTextOverflow(page, `${viewport.name} parent registration important text overflow`);
     await expectNamedButtons(page, `${viewport.name} parent registration buttons`);
     await capture(page, `${viewport.name}-parent-registration.png`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function runScheduleCreationViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    const unique = `qa-schedule-${Date.now()}`;
+    await login(page, demoEmail);
+    await page.goto(`${baseURL}/tenants`, { waitUntil: "networkidle" });
+    await page.fill('input[name="name"]', "QA Schedule Academy");
+    await page.fill('input[name="slug"]', unique);
+    await page.fill('input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('input[name="currency"]', "IDR");
+    await page.click('.tenant-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.locator(".tenant-item", { hasText: unique }).getByText("Continue setup").click();
+    await page.waitForLoadState("networkidle");
+    const academyId = new URL(page.url()).pathname.split("/")[2];
+
+    await page.fill('.branch-setup-form input[name="name"]', "QA Schedule Branch");
+    await page.fill('.branch-setup-form input[name="code"]', `QSC${String(Date.now()).slice(-3)}`);
+    await page.fill('.branch-setup-form input[name="timezone"]', "Asia/Jakarta");
+    await page.fill('.branch-setup-form input[name="address"]', "Jakarta Barat");
+    await page.click('.branch-setup-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+
+    await page.goto(`${baseURL}/academies/${academyId}/teachers`, { waitUntil: "networkidle" });
+    await page.fill('.teacher-create-form input[name="teacher_code"]', `QST${String(Date.now()).slice(-4)}`);
+    await page.fill('.teacher-create-form input[name="full_name"]', "QA Schedule Teacher");
+    await page.fill('.teacher-create-form input[name="specialization"]', "Math");
+    await page.click('.teacher-create-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+
+    await page.goto(`${baseURL}/academies/${academyId}/classes`, { waitUntil: "networkidle" });
+    await page.fill('.room-create-form input[name="room_code"]', `QSR${String(Date.now()).slice(-4)}`);
+    await page.fill('.room-create-form input[name="room_name"]', "QA Schedule Room");
+    await page.fill('.room-create-form input[name="capacity"]', "16");
+    await page.fill('.room-create-form input[name="room_type"]', "Offline");
+    await page.click('.room-create-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.fill('.class-create-form input[name="class_code"]', `QSC${String(Date.now()).slice(-4)}`);
+    await page.fill('.class-create-form input[name="class_name"]', "QA Schedule Class");
+    await page.fill('.class-create-form input[name="capacity"]', "12");
+    await page.click('.class-create-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+
+    await page.goto(`${baseURL}/academies/${academyId}/students`, { waitUntil: "networkidle" });
+    await page.fill('.student-create-form input[name="student_code"]', `QSS${String(Date.now()).slice(-4)}`);
+    await page.fill('.student-create-form input[name="full_name"]', "QA Schedule Student");
+    await page.fill('.student-create-form input[name="birth_date"]', "2012-09-09");
+    await page.click('.student-create-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+    await page.click('.student-enrollment-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+
+    await page.goto(`${baseURL}/academies/${academyId}/parents`, { waitUntil: "networkidle" });
+    await page.fill('.parent-create-form input[name="full_name"]', "QA Schedule Parent");
+    await page.fill('.parent-create-form input[name="email"]', `${unique}@example.com`);
+    await page.fill('.parent-create-form input[name="password"]', "password12345");
+    await page.click('.parent-create-form button[type="submit"]');
+    await page.waitForLoadState("networkidle");
+
+    await page.goto(`${baseURL}/academies/${academyId}/schedules`, { waitUntil: "networkidle" });
+    await expectText(page, "First schedule creation", `${viewport.name} schedule creation title`);
+    await expectText(page, "Operational session", `${viewport.name} schedule form`);
+    await expectText(page, "Conflict validation", `${viewport.name} schedule conflict panel`);
+    await expectText(page, "Visible operational sessions", `${viewport.name} schedule list`);
+    await expectText(page, "Schedule detail is waiting", `${viewport.name} schedule empty detail`);
+
+    if (viewport.mutateSchedule) {
+      await page.fill('.schedule-create-form input[name="starts_at"]', "2026-07-10T09:00");
+      await page.fill('.schedule-create-form input[name="ends_at"]', "2026-07-10T10:30");
+      await page.click('.schedule-create-form button[type="submit"]');
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Schedule pertama berhasil dibuat", "schedule create success");
+      await expectContent(page, "QA Schedule Class", "created schedule class visible");
+      await expectContent(page, "QA Schedule Teacher", "created schedule teacher visible");
+      await expectContent(page, "QA Schedule Room", "created schedule room visible");
+      await expectContent(page, "scheduled", "created schedule status visible");
+    }
+
+    await expectNoHorizontalOverflow(page, `${viewport.name} schedule creation overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} schedule creation important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} schedule creation buttons`);
+    await capture(page, `${viewport.name}-schedule-creation.png`);
   } finally {
     await context.close();
   }
@@ -818,6 +923,15 @@ async function expectText(page, text, label) {
   const visible = await page.getByText(text, { exact: false }).first().isVisible();
   if (!visible) {
     failures.push(`${label}: expected visible text "${text}".`);
+  } else {
+    qaChecks.push({ name: label, ok: true });
+  }
+}
+
+async function expectContent(page, text, label) {
+  const content = await page.content();
+  if (!content.includes(text)) {
+    failures.push(`${label}: expected page content "${text}".`);
   } else {
     qaChecks.push({ name: label, ok: true });
   }

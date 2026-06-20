@@ -91,6 +91,27 @@
         </div>
       </section>
 
+      {% if context.schedule_items %}
+        <section class="work-panel schedule-visibility-panel">
+          <div class="section-heading">
+            <p class="eyebrow">Upcoming schedule</p>
+            <h2>Connected class timeline</h2>
+          </div>
+          <div class="workflow-list">
+            {% for item in context.schedule_items %}
+              <article class="workflow-item">
+                <span>{{ item.when }}</span>
+                <div>
+                  <h3>{{ item.title }}</h3>
+                  <p>{{ item.body }}</p>
+                </div>
+                <strong>Visible</strong>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
       <section class="work-panel state-panel">
         <div class="section-heading">
           <p class="eyebrow">States</p>

@@ -3,7 +3,7 @@ from __future__ import annotations
 import hmac
 import secrets
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from uuid import UUID
 
 from flask import (
@@ -26,10 +26,12 @@ from app.models.academy import Academy
 from app.models.branch import Branch
 from app.models.class_student import ClassStudent
 from app.models.role_assignment import RoleAssignment
+from app.models.student import Student
 from app.models.user import User
 from app.permissions.constants import Permission, Role, ScopeType
-from app.repositories.role_assignment_repository import RoleAssignmentRepository
 from app.repositories.parent_repository import ParentRepository, ParentStudentRepository
+from app.repositories.role_assignment_repository import RoleAssignmentRepository
+from app.repositories.schedule_repository import ScheduleRepository
 from app.repositories.user_repository import UserRepository
 from app.services.academy_service import AcademyService
 from app.services.auth_service import AuthService
@@ -39,6 +41,7 @@ from app.services.class_service import ClassService
 from app.permissions.context import AuthorizationTarget
 from app.services.identity_service import IdentityService
 from app.services.room_service import RoomService
+from app.services.schedule_service import ScheduleService
 from app.services.student_service import StudentService
 from app.services.teacher_service import TeacherService
 
@@ -83,6 +86,7 @@ class DashboardContext:
     workflow_items: list[dict[str, str]]
     state_title: str
     state_items: list[dict[str, str]]
+    schedule_items: list[dict[str, str]]
 
 
 ROLE_UI = {
@@ -638,6 +642,20 @@ def register_web(app: Flask) -> None:
         if principal is None:
             return redirect(url_for("login_page"))
         return _render_parents(principal, academy_id, selected_parent_id=parent_id)
+
+    @app.get("/academies/<uuid:academy_id>/schedules")
+    def schedule_setup_page(academy_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        return _render_schedules(principal, academy_id)
+
+    @app.get("/academies/<uuid:academy_id>/schedules/<uuid:schedule_id>")
+    def schedule_detail_page(academy_id, schedule_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        return _render_schedules(principal, academy_id, selected_schedule_id=schedule_id)
 
     @app.post("/academies/<uuid:academy_id>/setup")
     def academy_setup_submit(academy_id):
@@ -1363,6 +1381,52 @@ def register_web(app: Flask) -> None:
         flash("Parent-student link berhasil dicabut.", "success")
         return redirect(url_for("parent_detail_page", academy_id=academy_id, parent_id=parent_id))
 
+    @app.post("/academies/<uuid:academy_id>/schedules")
+    def schedule_create_submit(academy_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        form = _schedule_form()
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang halaman schedule setup.", "error")
+            return _render_schedules(
+                principal,
+                academy_id,
+                schedule_form=form,
+                status_code=400,
+            )
+        try:
+            schedule = ScheduleService().create(
+                principal,
+                academy_id=academy_id,
+                branch_id=form["branch_id"],
+                class_id=form["class_id"],
+                teacher_id=form["teacher_id"],
+                room_id=form["room_id"],
+                starts_at=form["starts_at"],
+                ends_at=form["ends_at"],
+                timezone_name=form["timezone"],
+                status=form["status"],
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(_schedule_error_message(error), "error")
+            return _render_schedules(
+                principal,
+                academy_id,
+                schedule_form=form,
+                status_code=error.status_code,
+            )
+
+        flash("Schedule pertama berhasil dibuat dan session operasional sudah disiapkan.", "success")
+        return redirect(
+            url_for(
+                "schedule_detail_page",
+                academy_id=academy_id,
+                schedule_id=schedule.id,
+            )
+        )
+
     @app.errorhandler(404)
     def not_found(_error):
         if request.path.startswith("/api/"):
@@ -1615,6 +1679,25 @@ def _parent_link_form() -> dict[str, object]:
     }
 
 
+def _schedule_form() -> dict[str, object]:
+    return {
+        "branch_id": _required_uuid(request.form.get("branch_id", "").strip()),
+        "class_id": _required_uuid(request.form.get("class_id", "").strip()),
+        "teacher_id": _required_uuid(request.form.get("teacher_id", "").strip()),
+        "room_id": _required_uuid(request.form.get("room_id", "").strip()),
+        "starts_at": _required_datetime_local(
+            request.form.get("starts_at", "").strip(),
+            "Schedule start",
+        ),
+        "ends_at": _required_datetime_local(
+            request.form.get("ends_at", "").strip(),
+            "Schedule end",
+        ),
+        "timezone": request.form.get("timezone", "Asia/Jakarta").strip() or "Asia/Jakarta",
+        "status": request.form.get("status", "scheduled").strip() or "scheduled",
+    }
+
+
 def _teacher_user_id_from_form(principal, academy_id, form: dict[str, object]) -> UUID | None:
     existing_user_id = form["user_id"]
     if existing_user_id:
@@ -1685,6 +1768,19 @@ def _optional_date(value: str, label: str) -> date | None:
         return date.fromisoformat(value)
     except ValueError as error:
         raise AppError(f"{label} must use YYYY-MM-DD format.", code="validation_error", status_code=422) from error
+
+
+def _required_datetime_local(value: str, label: str) -> datetime:
+    if not value:
+        raise AppError(f"{label} is required.", code="validation_error", status_code=422)
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError as error:
+        raise AppError(f"{label} must use YYYY-MM-DDTHH:MM format.", code="validation_error", status_code=422) from error
+
+
+def _datetime_local_value(value: datetime | None) -> str:
+    return value.strftime("%Y-%m-%dT%H:%M") if value else ""
 
 
 def _render_tenants(principal, *, form: dict[str, str] | None = None, status_code: int = 200):
@@ -2204,6 +2300,119 @@ def _render_parents(
     )
 
 
+def _render_schedules(
+    principal,
+    academy_id,
+    *,
+    selected_schedule_id=None,
+    schedule_form: dict[str, object] | None = None,
+    status_code: int = 200,
+):
+    schedule_repository = ScheduleRepository()
+    try:
+        academy = AcademyService().get_visible(principal, academy_id)
+        branches = BranchService().list_visible(principal, academy.id)
+        if not any(_can_view_schedules(principal, academy.id, branch.id) for branch in branches):
+            raise AppError("Role aktif Anda tidak memiliki akses.", code="forbidden", status_code=403)
+        branch_ids = {branch.id for branch in branches}
+        schedules = schedule_repository.list_for_branches_window(
+            academy.id,
+            branch_ids,
+            datetime.combine(date.today(), time.min) - timedelta(days=30),
+            datetime.combine(date.today(), time.max) + timedelta(days=90),
+        )
+        selected_schedule = (
+            next((item for item in schedules if item.id == selected_schedule_id), None)
+            if selected_schedule_id
+            else (schedules[0] if schedules else None)
+        )
+        if selected_schedule_id and selected_schedule is None:
+            raise AppError("Schedule was not found in your visible branch scope.", code="not_found", status_code=404)
+        classes_by_branch = {
+            branch.id: ClassService().list_for_branch(principal, academy.id, branch.id)
+            for branch in branches
+        }
+        rooms_by_branch = {
+            branch.id: RoomService().list_for_branch(principal, academy.id, branch.id)
+            for branch in branches
+        }
+        teachers = TeacherService().list_visible(principal, academy.id)
+    except AppError as error:
+        return render_template(
+            "error.html",
+            user=principal.user,
+            status_code=error.status_code,
+        ), error.status_code
+
+    branch_by_id = {branch.id: branch for branch in branches}
+    manageable_branches = [
+        branch
+        for branch in branches
+        if _can_create_schedule(principal, academy.id, branch.id)
+    ]
+    teachers_by_branch = {
+        branch.id: [
+            teacher
+            for teacher in teachers
+            if any(
+                assignment.branch_id == branch.id
+                and assignment.assignment_status == "active"
+                for assignment in teacher.branch_assignments
+            )
+        ]
+        for branch in branches
+    }
+    default_branch = manageable_branches[0] if manageable_branches else (branches[0] if branches else None)
+    default_classes = classes_by_branch.get(default_branch.id, []) if default_branch else []
+    default_rooms = rooms_by_branch.get(default_branch.id, []) if default_branch else []
+    default_teachers = teachers_by_branch.get(default_branch.id, []) if default_branch else []
+    default_start = datetime.combine(date.today() + timedelta(days=1), time(hour=9))
+    default_end = default_start + timedelta(hours=1, minutes=30)
+    default_schedule_form = {
+        "branch_id": default_branch.id if default_branch else "",
+        "class_id": default_classes[0].id if default_classes else "",
+        "teacher_id": default_teachers[0].id if default_teachers else "",
+        "room_id": default_rooms[0].id if default_rooms else "",
+        "starts_at": default_start,
+        "ends_at": default_end,
+        "timezone": default_branch.timezone if default_branch else academy.timezone,
+        "status": "scheduled",
+    }
+    return (
+        render_template(
+            "schedules.html",
+            user=principal.user,
+            academy=academy,
+            branches=branches,
+            branch_by_id=branch_by_id,
+            manageable_branches=manageable_branches,
+            classes_by_branch=classes_by_branch,
+            rooms_by_branch=rooms_by_branch,
+            teachers_by_branch=teachers_by_branch,
+            schedules=schedules,
+            selected_schedule=selected_schedule,
+            schedule_form=schedule_form or default_schedule_form,
+            can_access_tenants=_is_platform_owner(principal),
+            can_create_schedule=lambda branch_id: _can_create_schedule(principal, academy.id, branch_id),
+            format_datetime=_format_schedule_datetime,
+            datetime_local_value=_datetime_local_value,
+        ),
+        status_code,
+    )
+
+
+def _schedule_error_message(error: AppError) -> str:
+    code = getattr(error, "code", "")
+    stage = error.details.get("stage", "") if getattr(error, "details", None) else ""
+    if stage or code:
+        return f"{error.message} Conflict stage: {stage or 'schedule'} / code: {code or 'schedule_error'}."
+    return error.message
+
+
+def _format_schedule_datetime(value: datetime | None) -> str:
+    return value.strftime("%d %b %Y %H:%M") if value else "-"
+
+
 def _internal_roles() -> list[Role]:
     return [
         Role.ACADEMY_DIRECTOR,
@@ -2425,6 +2634,22 @@ def _can_manage_class_resources(principal, academy_id, branch_id) -> bool:
     )
 
 
+def _can_view_schedules(principal, academy_id, branch_id) -> bool:
+    return AuthorizationService.is_allowed(
+        principal,
+        Permission.SCHEDULE_VIEW,
+        AuthorizationTarget(academy_id=academy_id, branch_id=branch_id),
+    )
+
+
+def _can_create_schedule(principal, academy_id, branch_id) -> bool:
+    return AuthorizationService.is_allowed(
+        principal,
+        Permission.SCHEDULE_CREATE,
+        AuthorizationTarget(academy_id=academy_id, branch_id=branch_id),
+    )
+
+
 def _can_edit_branch(principal, branch: Branch) -> bool:
     return AuthorizationService.is_allowed(
         principal,
@@ -2475,6 +2700,7 @@ def _dashboard_context(principal, role: Role) -> DashboardContext:
         workflow_items=ROLE_UI[role]["workflow_items"],
         state_title=ROLE_UI[role]["state_title"],
         state_items=ROLE_UI[role]["state_items"],
+        schedule_items=_dashboard_schedule_items(principal, role, academy_id, branch_id),
     )
 
 
@@ -2501,3 +2727,59 @@ def _role_metrics(
             }
         )
     return metrics
+
+
+def _dashboard_schedule_items(principal, role: Role, academy_id, branch_id) -> list[dict[str, str]]:
+    if academy_id is None:
+        return []
+    starts_at = datetime.combine(date.today(), time.min) - timedelta(days=1)
+    ends_at = datetime.combine(date.today(), time.max) + timedelta(days=14)
+    repository = ScheduleRepository()
+    schedules = []
+    if role in {Role.BRANCH_ADMIN, Role.BRANCH_MANAGER} and branch_id is not None:
+        schedules = repository.list_for_branch(academy_id, branch_id)
+    elif role == Role.ACADEMY_DIRECTOR:
+        branch_ids = {
+            branch.id
+            for branch in BranchService().list_visible(principal, academy_id)
+            if _can_view_schedules(principal, academy_id, branch.id)
+        }
+        schedules = repository.list_for_branches_window(academy_id, branch_ids, starts_at, ends_at)
+    elif role == Role.TEACHER:
+        teacher = TeacherService().repository.get_by_user(academy_id, principal.user.id)
+        if teacher is not None:
+            schedules = repository.list_for_teacher_window(academy_id, teacher.id, starts_at, ends_at)
+    elif role == Role.STUDENT:
+        student = db.session.scalar(
+            db.select(Student).where(
+                Student.academy_id == academy_id,
+                Student.user_id == principal.user.id,
+                Student.status != "archived",
+            )
+        )
+        if student is not None:
+            schedules = repository.list_for_student_window(academy_id, student.id, starts_at, ends_at)
+    elif role == Role.PARENT:
+        parent = ParentRepository().get_by_user(academy_id, principal.user.id)
+        if parent is not None:
+            links = ParentStudentRepository().list_active_for_parent(academy_id, parent.id)
+            seen = set()
+            for link in links:
+                for schedule in repository.list_for_student_window(academy_id, link.student_id, starts_at, ends_at):
+                    if schedule.id not in seen:
+                        schedules.append(schedule)
+                        seen.add(schedule.id)
+            schedules.sort(key=lambda item: (item.starts_at, item.id))
+
+    return [_schedule_dashboard_item(schedule) for schedule in schedules[:4]]
+
+
+def _schedule_dashboard_item(schedule) -> dict[str, str]:
+    academic_class = schedule.academic_class.class_name if schedule.academic_class else "Class"
+    teacher = schedule.teacher.full_name if schedule.teacher else "Teacher"
+    room = schedule.room.room_name if schedule.room else "Room"
+    return {
+        "when": _format_schedule_datetime(schedule.starts_at),
+        "title": academic_class,
+        "body": f"{teacher} / {room} / {schedule.status}",
+    }
