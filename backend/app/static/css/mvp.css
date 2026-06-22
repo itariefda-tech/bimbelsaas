@@ -39,14 +39,16 @@ body {
 a,
 button,
 input,
-select {
+select,
+textarea {
   outline-color: transparent;
 }
 
 a:focus-visible,
 button:focus-visible,
 input:focus-visible,
-select:focus-visible {
+select:focus-visible,
+textarea:focus-visible {
   outline: 3px solid rgba(28, 122, 97, 0.28);
   outline-offset: 2px;
 }
@@ -73,6 +75,34 @@ select:focus-visible {
   text-decoration: none;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  border-radius: 999px;
+  padding: 0 12px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.topbar-link span {
+  min-width: 24px;
+  border-radius: 999px;
+  padding: 3px 7px;
+  background: var(--gold-soft);
+  color: #704800;
+  text-align: center;
+}
+
 .page-shell {
   width: min(1180px, 100%);
   margin: 0 auto;
@@ -85,6 +115,7 @@ select:focus-visible {
 .work-panel,
 .metric-card,
 .rail-card {
+  min-width: 0;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -201,7 +232,8 @@ label {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
@@ -213,8 +245,14 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   border-color: var(--emerald);
+}
+
+textarea {
+  min-height: 96px;
+  resize: vertical;
 }
 
 .primary-button,
@@ -564,6 +602,10 @@ select:focus {
   gap: 14px;
 }
 
+.inline-section-heading {
+  margin-top: 22px;
+}
+
 .form-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 130px;
@@ -700,6 +742,171 @@ select:focus {
   gap: 10px;
 }
 
+.attendance-list {
+  display: grid;
+  gap: 10px;
+}
+
+.attendance-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(140px, 0.28fr) minmax(180px, 0.36fr);
+  gap: 12px;
+  align-items: end;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.attendance-row h3,
+.attendance-row p {
+  margin-bottom: 0;
+}
+
+.attendance-row p {
+  margin-top: 6px;
+  color: var(--muted);
+}
+
+.approval-list {
+  display: grid;
+  gap: 12px;
+}
+
+.approval-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 0.55fr);
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.approval-item h3,
+.approval-item p {
+  margin-bottom: 0;
+}
+
+.approval-item p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.approval-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.approval-actions form {
+  display: grid;
+  gap: 8px;
+}
+
+.notification-list {
+  display: grid;
+  gap: 12px;
+}
+
+.notification-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.28fr);
+  gap: 14px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-left-width: 6px;
+  border-radius: 8px;
+  padding: 14px;
+  background: var(--surface-soft);
+}
+
+.notification-item.priority-high {
+  border-left-color: var(--danger);
+}
+
+.notification-item.priority-medium {
+  border-left-color: var(--gold);
+}
+
+.notification-item.priority-low {
+  border-left-color: var(--emerald);
+}
+
+.notification-item.is-read {
+  opacity: 0.72;
+}
+
+.notification-item span {
+  color: var(--emerald);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.notification-item h3,
+.notification-item p {
+  margin-bottom: 0;
+}
+
+.notification-item p {
+  margin-top: 6px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.notification-actions {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
+.notification-actions strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.report-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+
+.report-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.report-table th,
+.report-table td {
+  border-bottom: 1px solid var(--line);
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.report-table th {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.report-table td {
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.report-table td span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .team-item {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(180px, 0.35fr) auto;
@@ -784,6 +991,9 @@ select:focus {
 
   .tenant-hero,
   .tenant-item,
+  .attendance-row,
+  .approval-item,
+  .notification-item,
   .branch-summary,
   .team-item {
     display: grid;
@@ -826,6 +1036,10 @@ select:focus {
 
   .workflow-item strong {
     justify-self: start;
+  }
+
+  .notification-actions {
+    justify-items: start;
   }
 
   h1 {

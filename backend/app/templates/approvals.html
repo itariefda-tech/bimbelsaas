@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}Approval Workflow - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Approval workflow</p>
+        <h1>{{ academy.name }} Approvals</h1>
+        <p class="lead">Review reschedule, attendance correction, and lesson summary correction requests with an auditable decision reason.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="secondary-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="secondary-link" href="{{ url_for('schedule_setup_page', academy_id=academy.id) }}">Schedules</a>
+      </div>
+    </section>
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Queue health</p>
+        <h2>Pending operational decisions</h2>
+      </div>
+      <div class="state-grid">
+        <article class="state-item">
+          <span>Reschedule</span>
+          <h3>{{ queues.reschedule.pending|length }}</h3>
+          <p>Requests revalidate conflicts before approval so stale schedule changes are blocked.</p>
+        </article>
+        <article class="state-item">
+          <span>Attendance</span>
+          <h3>{{ queues.attendance.pending|length }}</h3>
+          <p>Finalized attendance can only change through approved correction requests.</p>
+        </article>
+        <article class="state-item">
+          <span>Lesson summary</span>
+          <h3>{{ queues.lesson_summary.pending|length }}</h3>
+          <p>Published parent-facing summaries stay locked until a correction is approved.</p>
+        </article>
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Reschedule approval queue</p>
+          <h2>Schedule changes</h2>
+        </div>
+        {% if queues.reschedule.pending %}
+          <div class="approval-list">
+            {% for item in queues.reschedule.pending %}
+              <article class="approval-item">
+                <div>
+                  <h3>{{ item.schedule.academic_class.class_name if item.schedule and item.schedule.academic_class else "Class" }}</h3>
+                  <p>{{ format_datetime(item.original_starts_at) }} -> {{ format_datetime(item.proposed_starts_at) }}</p>
+                  <p>{{ item.reason }}</p>
+                </div>
+                {{ approval_decision_forms("reschedule", item, academy.id) }}
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No pending reschedule</h3>
+            <p>Approved requests create a replacement schedule and mark the original as rescheduled.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Attendance correction queue</p>
+          <h2>Finalized records</h2>
+        </div>
+        {% if queues.attendance.pending %}
+          <div class="approval-list">
+            {% for item in queues.attendance.pending %}
+              <article class="approval-item">
+                <div>
+                  <h3>{{ item.attendance.student_id }}</h3>
+                  <p>{{ item.original_status }} -> {{ item.proposed_status }}</p>
+                  <p>{{ item.reason }}</p>
+                </div>
+                {{ approval_decision_forms("attendance", item, academy.id) }}
+              </article>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No pending attendance correction</h3>
+            <p>Teachers and admins can request corrections from the locked daily operations page.</p>
+          </div>
+        {% endif %}
+      </section>
+    </div>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Lesson summary correction queue</p>
+        <h2>Published summaries</h2>
+      </div>
+      {% if queues.lesson_summary.pending %}
+        <div class="approval-list">
+          {% for item in queues.lesson_summary.pending %}
+            <article class="approval-item">
+              <div>
+                <h3>{{ item.lesson_summary.lesson_topic }}</h3>
+                <p>{{ item.proposed_data.class_summary }}</p>
+                <p>{{ item.reason }}</p>
+              </div>
+              {{ approval_decision_forms("lesson-summary", item, academy.id) }}
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>No pending lesson summary correction</h3>
+          <p>Published summaries remain parent-visible while corrections wait for approval.</p>
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Decision history</p>
+        <h2>Recently decided requests</h2>
+      </div>
+      <div class="workflow-list">
+        {% for item in queues.reschedule.decided %}
+          <article class="workflow-item">
+            <span>Reschedule</span>
+            <div>
+              <h3>{{ item.status }}</h3>
+              <p>{{ item.decision_reason or item.reason }}</p>
+            </div>
+            <strong>{{ format_datetime(item.decided_at) }}</strong>
+          </article>
+        {% endfor %}
+        {% for item in queues.attendance.decided %}
+          <article class="workflow-item">
+            <span>Attendance</span>
+            <div>
+              <h3>{{ item.status }}</h3>
+              <p>{{ item.decision_reason or item.reason }}</p>
+            </div>
+            <strong>{{ format_datetime(item.decided_at) }}</strong>
+          </article>
+        {% endfor %}
+        {% for item in queues.lesson_summary.decided %}
+          <article class="workflow-item">
+            <span>Summary</span>
+            <div>
+              <h3>{{ item.status }}</h3>
+              <p>{{ item.decision_reason or item.reason }}</p>
+            </div>
+            <strong>{{ format_datetime(item.decided_at) }}</strong>
+          </article>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endblock %}
+
+{% macro approval_decision_forms(request_type, item, academy_id) %}
+  <div class="approval-actions">
+    <form method="post" action="{{ url_for('approval_decision_submit', academy_id=academy_id, request_type=request_type, request_id=item.id, decision='approve') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="branch_id" value="{{ item.branch_id }}">
+      <label>
+        Approval reason
+        <input name="reason" required>
+      </label>
+      <button class="primary-button" type="submit">Approve</button>
+    </form>
+    <form method="post" action="{{ url_for('approval_decision_submit', academy_id=academy_id, request_type=request_type, request_id=item.id, decision='reject') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="branch_id" value="{{ item.branch_id }}">
+      <label>
+        Rejection reason
+        <input name="reason" required>
+      </label>
+      <button class="danger-button" type="submit">Reject</button>
+    </form>
+  </div>
+{% endmacro %}

@@ -196,3 +196,9 @@ Demo users:
 All demo users use password `password123`.
 
 Jangan menambah fitur besar sebelum production readiness baseline stabil. Gunakan role assignment existing (`Role`, `ScopeType`, `RoleAssignment`) dan model existing (`Academy`, `Branch`, `User`) supaya tidak membuat auth/dashboard duplikat. Development boleh SQLite untuk bootstrapping lokal; production guard tetap melarang SQLite.
+
+
+-------------
+CW13 - Academy Director Reporting Workflow selesai baseline. Academy Director sekarang punya academy-wide branch rollup, tabel perbandingan cabang untuk attendance consistency, schedule stability, teacher workload, dan parent engagement, plus coverage backend dan UI quality gate desktop/mobile.
+
+Lanjut berikutnya: CW14 - SaaS Billing, Tier, Subscription, Addon. Fokus awalnya subscription state yang terlihat jelas di UI: trial/grace/suspended banner, plan detail, addon placeholder, dan backend-validated feature gating untuk Platform Owner + Academy Director.

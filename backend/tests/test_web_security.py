@@ -6,18 +6,26 @@ from app.config import ProductionConfig
 from app.extensions import db
 from app.models.academy import Academy
 from app.models.academic_class import AcademicClass
+from app.models.attendance import Attendance
 from app.models.branch import Branch
+from app.models.class_session import ClassSession
 from app.models.class_student import ClassStudent
+from app.models.lesson_summary import LessonSummary
+from app.models.lesson_summary_edit_request import LessonSummaryEditRequest
+from app.models.notification import Notification
 from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
 from app.models.role_assignment import RoleAssignment
 from app.models.room import Room
 from app.models.schedule import Schedule
+from app.models.schedule_change_request import ScheduleChangeRequest
 from app.models.student import Student
 from app.models.teacher import Teacher
 from app.models.teacher_branch import TeacherBranch
+from app.models.attendance_edit_request import AttendanceEditRequest
 from app.models.user import User
 from app.permissions.constants import Role, ScopeType
+from app.services.notification_service import NotificationService
 from tests.conftest import TestConfig
 
 
@@ -218,6 +226,369 @@ def test_dashboard_shows_role_specific_polish(client, create_identity):
     assert "Role focus" in body
     assert "Quick actions" in body
     assert "Review staging runbook" in body
+
+
+def test_notification_center_lists_and_marks_read(
+    client,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    user, _ = create_identity(
+        academy_id=academy_id,
+        email="notification-user@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    NotificationService().emit(
+        academy_id=academy_id,
+        recipient_user_id=user.id,
+        notification_type="attendance.finalized",
+        priority="high",
+        title="Attendance finalized",
+        payload={"session_id": "session-1", "student_count": 12},
+        dedup_key="web-notification-center:test",
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": user.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+
+    dashboard = client.get("/dashboard/branch_admin")
+    body = dashboard.get_data(as_text=True)
+
+    assert dashboard.status_code == 200
+    assert "Notifications" in body
+    assert ">1<" in body
+
+    page = client.get("/notifications")
+    body = page.get_data(as_text=True)
+
+    assert page.status_code == 200
+    assert "Notification center" in body
+    assert "Attendance finalized" in body
+    assert "high / attendance.finalized" in body
+    assert "session_id: session-1" in body
+    assert "Unread" in body
+
+    notification = db.session.scalar(db.select(Notification))
+    response = client.post(
+        f"/notifications/{notification.id}/read",
+        data={"_csrf_token": _csrf_from_body(body)},
+        follow_redirects=True,
+    )
+    body = response.get_data(as_text=True)
+    db.session.refresh(notification)
+
+    assert response.status_code == 200
+    assert notification.read_at is not None
+    assert "Notification marked as read." in body
+    assert "Read " in body
+
+
+def test_branch_manager_report_view_summarizes_operational_metrics(
+    client,
+    identity,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    context = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="REPORT")
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="report-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    manager, _ = create_identity(
+        academy_id=academy_id,
+        email="report-manager@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_MANAGER,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/schedules",
+        data={
+            "branch_id": str(branch_id),
+            "class_id": str(context["academic_class"].id),
+            "teacher_id": str(context["teacher"].id),
+            "room_id": str(context["room"].id),
+            "starts_at": "2026-06-25T09:00",
+            "ends_at": "2026-06-25T10:30",
+            "timezone": "Asia/Jakarta",
+            "status": "scheduled",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    schedule = db.session.scalar(
+        db.select(Schedule).where(Schedule.class_id == context["academic_class"].id)
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance",
+        data={
+            f"attendance_status_{context['student'].id}": "present",
+            f"attendance_note_{context['student'].id}": "On time",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance/finalize",
+        data={"_csrf_token": _csrf_from_body(body)},
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary",
+        data={
+            "lesson_topic": "Report topic",
+            "class_summary": "Report summary.",
+            "teacher_notes": "",
+            "homework": "",
+            "student_attention_notes": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary/publish",
+        data={"_csrf_token": _csrf_from_body(body)},
+    )
+
+    with client.session_transaction() as session:
+        session.clear()
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": manager.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    dashboard = client.get("/dashboard/branch_manager")
+    body = dashboard.get_data(as_text=True)
+
+    assert "Open reports" in body
+
+    report = client.get(f"/academies/{academy_id}/reports?branch_id={branch_id}")
+    body = report.get_data(as_text=True)
+
+    assert report.status_code == 200
+    assert "Reporting and oversight" in body
+    assert "Attendance consistency" in body
+    assert "Schedule stability" in body
+    assert "Teacher workload" in body
+    assert "Parent engagement" in body
+    assert "100%" in body
+    assert "1.0" in body
+    assert "Notifications sent to active parent links for 1 linked students" in body
+
+
+def test_academy_director_report_view_compares_branches(
+    client,
+    identity,
+    create_identity,
+    create_branch,
+    academy_id,
+    branch_id,
+):
+    second_branch = create_branch(academy_id=academy_id, name="Director Rollup Branch")
+    visible = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="DIRA")
+    comparison = _seed_schedule_ready_context(
+        identity,
+        academy_id,
+        second_branch.id,
+        suffix="DIRB",
+    )
+    director, _ = create_identity(
+        academy_id=academy_id,
+        email="director-report@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.ACADEMY_DIRECTOR,
+                "scope_type": ScopeType.ACADEMY,
+            },
+        ),
+    )
+    parent = db.session.scalar(
+        db.select(Parent).where(
+            Parent.academy_id == academy_id,
+            Parent.user_id == visible["parent_user"].id,
+        )
+    )
+    if parent is None:
+        parent = Parent(
+            academy_id=academy_id,
+            user_id=visible["parent_user"].id,
+            relationship_type="guardian",
+            primary_contact=True,
+            status="active",
+        )
+        db.session.add(parent)
+        db.session.flush()
+    parent_link = db.session.scalar(
+        db.select(ParentStudent).where(
+            ParentStudent.parent_id == parent.id,
+            ParentStudent.student_id == visible["student"].id,
+        )
+    )
+    if parent_link is None:
+        db.session.add(
+            ParentStudent(
+                academy_id=academy_id,
+                parent_id=parent.id,
+                student_id=visible["student"].id,
+                relationship_status="active",
+                linked_by=director.id,
+            )
+        )
+    stable_schedule = Schedule(
+        academy_id=academy_id,
+        branch_id=branch_id,
+        class_id=visible["academic_class"].id,
+        teacher_id=visible["teacher"].id,
+        room_id=visible["room"].id,
+        starts_at=datetime.fromisoformat("2026-06-26T09:00"),
+        ends_at=datetime.fromisoformat("2026-06-26T10:30"),
+        timezone="Asia/Jakarta",
+        status="completed",
+        created_by=director.id,
+        updated_by=director.id,
+    )
+    cancelled_schedule = Schedule(
+        academy_id=academy_id,
+        branch_id=second_branch.id,
+        class_id=comparison["academic_class"].id,
+        teacher_id=comparison["teacher"].id,
+        room_id=comparison["room"].id,
+        starts_at=datetime.fromisoformat("2026-06-26T11:00"),
+        ends_at=datetime.fromisoformat("2026-06-26T12:30"),
+        timezone="Asia/Jakarta",
+        status="cancelled",
+        created_by=director.id,
+        updated_by=director.id,
+    )
+    db.session.add_all([stable_schedule, cancelled_schedule])
+    db.session.flush()
+    stable_session = ClassSession(
+        academy_id=academy_id,
+        branch_id=branch_id,
+        schedule_id=stable_schedule.id,
+        status="completed",
+        attendance_status="finalized",
+        attendance_finalized_by=director.id,
+    )
+    cancelled_session = ClassSession(
+        academy_id=academy_id,
+        branch_id=second_branch.id,
+        schedule_id=cancelled_schedule.id,
+        status="cancelled",
+    )
+    db.session.add_all([stable_session, cancelled_session])
+    db.session.flush()
+    db.session.add(
+        Attendance(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            session_id=stable_session.id,
+            schedule_id=stable_schedule.id,
+            class_id=visible["academic_class"].id,
+            student_id=visible["student"].id,
+            attendance_status="present",
+            recorded_by=director.id,
+            updated_by=director.id,
+        )
+    )
+    NotificationService().emit(
+        academy_id=academy_id,
+        recipient_user_id=visible["parent_user"].id,
+        notification_type="lesson_summary.published",
+        priority="medium",
+        title="Director rollup parent update",
+        payload={"session_id": str(stable_session.id)},
+        dedup_key="director-rollup-parent-update",
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": director.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    dashboard = client.get("/dashboard/academy_director")
+    body = dashboard.get_data(as_text=True)
+
+    assert "Open reports" in body
+
+    report = client.get(f"/academies/{academy_id}/reports")
+    body = report.get_data(as_text=True)
+
+    assert report.status_code == 200
+    assert "Academy Director reporting workflow" in body
+    assert "Academy-wide branch rollup" in body
+    assert "Branch comparison table" in body
+    assert "Operational comparison" in body
+    assert "Test Branch" in body
+    assert "Director Rollup Branch" in body
+    assert "100%<" in body
+    assert "50%" in body
+    assert "1 updates / 1 links" in body
 
 
 def test_platform_owner_can_register_tenant_from_web(client, create_identity):
@@ -2184,6 +2555,563 @@ def test_created_schedule_is_visible_on_role_dashboards(
         assert "CW9 Class DASH" in body
         assert "CW9 Teacher DASH" in body
         assert "CW9 Room DASH" in body
+
+
+def test_teacher_daily_operations_attendance_and_summary_flow(
+    client,
+    identity,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    context = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="CW10")
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="cw10-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/schedules",
+        data={
+            "branch_id": str(branch_id),
+            "class_id": str(context["academic_class"].id),
+            "teacher_id": str(context["teacher"].id),
+            "room_id": str(context["room"].id),
+            "starts_at": "2026-06-25T09:00",
+            "ends_at": "2026-06-25T10:30",
+            "timezone": "Asia/Jakarta",
+            "status": "scheduled",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    schedule = db.session.scalar(
+        db.select(Schedule).where(Schedule.class_id == context["academic_class"].id)
+    )
+
+    with client.session_transaction() as session:
+        session.clear()
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": context["teacher_user"].email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    dashboard = client.get("/dashboard/teacher")
+    body = dashboard.get_data(as_text=True)
+
+    assert "Daily operations" in body
+    assert "Needs attendance" in body
+    assert "CW9 Class CW10" in body
+
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+
+    assert operations.status_code == 200
+    assert "Attendance UI" in body
+    assert "Lesson summary" in body
+    assert "CW9 Student CW10" in body
+
+    saved_attendance = client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance",
+        data={
+            f"attendance_status_{context['student'].id}": "present",
+            f"attendance_note_{context['student'].id}": "Joined on time",
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = saved_attendance.get_data(as_text=True)
+    finalized = client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance/finalize",
+        data={"_csrf_token": _csrf_from_body(body)},
+        follow_redirects=True,
+    )
+    body = finalized.get_data(as_text=True)
+    draft = client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary",
+        data={
+            "lesson_topic": "Fractions",
+            "class_summary": "Practiced fraction basics.",
+            "teacher_notes": "Good focus",
+            "homework": "Exercise 1",
+            "student_attention_notes": "Review denominators",
+            "_csrf_token": _csrf_from_body(body),
+        },
+        follow_redirects=True,
+    )
+    body = draft.get_data(as_text=True)
+    published = client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary/publish",
+        data={"_csrf_token": _csrf_from_body(body)},
+        follow_redirects=True,
+    )
+
+    attendance = db.session.scalar(
+        db.select(Attendance).where(Attendance.session_id == schedule.session.id)
+    )
+    summary = db.session.scalar(
+        db.select(LessonSummary).where(LessonSummary.session_id == schedule.session.id)
+    )
+
+    assert saved_attendance.status_code == 200
+    assert finalized.status_code == 200
+    assert draft.status_code == 200
+    assert published.status_code == 200
+    assert attendance.attendance_status == "present"
+    assert schedule.session.attendance_status == "finalized"
+    assert summary.status == "published"
+    assert "Lesson summary published" in published.get_data(as_text=True)
+
+
+def test_parent_and_student_dashboards_only_show_public_daily_operations(
+    client,
+    identity,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    context = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="PUBLIC")
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="cw10-public-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/schedules",
+        data={
+            "branch_id": str(branch_id),
+            "class_id": str(context["academic_class"].id),
+            "teacher_id": str(context["teacher"].id),
+            "room_id": str(context["room"].id),
+            "starts_at": "2026-06-22T09:00",
+            "ends_at": "2026-06-22T10:30",
+            "timezone": "Asia/Jakarta",
+            "status": "scheduled",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    schedule = db.session.scalar(
+        db.select(Schedule).where(Schedule.class_id == context["academic_class"].id)
+    )
+
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance",
+        data={
+            f"attendance_status_{context['student'].id}": "late",
+            f"attendance_note_{context['student'].id}": "Traffic",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    with client.session_transaction() as session:
+        session.clear()
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": context["teacher_user"].email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary",
+        data={
+            "lesson_topic": "Draft-only topic",
+            "class_summary": "This draft must stay internal.",
+            "teacher_notes": "",
+            "homework": "",
+            "student_attention_notes": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    for email, dashboard in [
+        (context["student_user"].email, "/dashboard/student"),
+        (context["parent_user"].email, "/dashboard/parent"),
+    ]:
+        with client.session_transaction() as session:
+            session.clear()
+        csrf = _csrf_from_login_page(client)
+        client.post(
+            "/login",
+            data={
+                "email": email,
+                "password": "password12345",
+                "_csrf_token": csrf,
+            },
+        )
+        response = client.get(dashboard)
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "Draft-only topic" not in body
+        assert "Attendance late" not in body
+        assert "attendance late" not in body
+
+    with client.session_transaction() as session:
+        session.clear()
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance/finalize",
+        data={"_csrf_token": _csrf_from_body(body)},
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary/publish",
+        data={"_csrf_token": _csrf_from_body(body)},
+    )
+
+    for email, dashboard in [
+        (context["student_user"].email, "/dashboard/student"),
+        (context["parent_user"].email, "/dashboard/parent"),
+    ]:
+        with client.session_transaction() as session:
+            session.clear()
+        csrf = _csrf_from_login_page(client)
+        client.post(
+            "/login",
+            data={
+                "email": email,
+                "password": "password12345",
+                "_csrf_token": csrf,
+            },
+        )
+        response = client.get(dashboard)
+        body = response.get_data(as_text=True)
+
+        assert response.status_code == 200
+        assert "Daily operations" in body
+        assert "Draft-only topic" in body
+        assert ("Attendance late" in body) or ("attendance late" in body)
+
+
+def test_branch_manager_approval_queue_decides_reschedule_attendance_and_summary(
+    client,
+    identity,
+    create_identity,
+    academy_id,
+    branch_id,
+):
+    context = _seed_schedule_ready_context(identity, academy_id, branch_id, suffix="CW11")
+    admin, _ = create_identity(
+        academy_id=academy_id,
+        email="cw11-admin@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_ADMIN,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    manager, _ = create_identity(
+        academy_id=academy_id,
+        email="cw11-manager@example.com",
+        password="password12345",
+        assignments=(
+            {
+                "role": Role.BRANCH_MANAGER,
+                "scope_type": ScopeType.BRANCH,
+                "branch_id": branch_id,
+            },
+        ),
+    )
+    db.session.commit()
+
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    page = client.get(f"/academies/{academy_id}/schedules")
+    body = page.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/schedules",
+        data={
+            "branch_id": str(branch_id),
+            "class_id": str(context["academic_class"].id),
+            "teacher_id": str(context["teacher"].id),
+            "room_id": str(context["room"].id),
+            "starts_at": "2026-06-23T09:00",
+            "ends_at": "2026-06-23T10:30",
+            "timezone": "Asia/Jakarta",
+            "status": "scheduled",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    schedule = db.session.scalar(
+        db.select(Schedule).where(Schedule.class_id == context["academic_class"].id)
+    )
+    detail = client.get(f"/academies/{academy_id}/schedules/{schedule.id}")
+    client.post(
+        f"/academies/{academy_id}/schedules/{schedule.id}/reschedule-requests",
+        data={
+            "branch_id": str(branch_id),
+            "teacher_id": str(context["teacher"].id),
+            "room_id": str(context["room"].id),
+            "starts_at": "2026-06-24T09:00",
+            "ends_at": "2026-06-24T10:30",
+            "timezone": "Asia/Jakarta",
+            "reason": "Teacher requested a better time",
+            "_csrf_token": _csrf_from_body(detail.get_data(as_text=True)),
+        },
+    )
+
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance",
+        data={
+            f"attendance_status_{context['student'].id}": "absent",
+            f"attendance_note_{context['student'].id}": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/attendance/finalize",
+        data={"_csrf_token": _csrf_from_body(body)},
+    )
+
+    with client.session_transaction() as session:
+        session.clear()
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": context["teacher_user"].email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary",
+        data={
+            "lesson_topic": "Approval topic",
+            "class_summary": "Published wording.",
+            "teacher_notes": "",
+            "homework": "",
+            "student_attention_notes": "",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/lesson-summary/publish",
+        data={"_csrf_token": _csrf_from_body(body)},
+    )
+    summary = db.session.scalar(
+        db.select(LessonSummary).where(LessonSummary.session_id == schedule.session.id)
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    client.post(
+        f"/academies/{academy_id}/lesson-summaries/{summary.id}/edit-requests",
+        data={
+            "branch_id": str(branch_id),
+            "lesson_topic": "Approval topic",
+            "class_summary": "Corrected wording.",
+            "teacher_notes": "",
+            "homework": "",
+            "student_attention_notes": "",
+            "reason": "Clarify published summary",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    with client.session_transaction() as session:
+        session.clear()
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": admin.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    operations = client.get(
+        f"/academies/{academy_id}/sessions/{schedule.session.id}/daily-operations"
+    )
+    body = operations.get_data(as_text=True)
+    attendance = db.session.scalar(
+        db.select(Attendance).where(Attendance.session_id == schedule.session.id)
+    )
+    client.post(
+        f"/academies/{academy_id}/attendances/{attendance.id}/edit-requests",
+        data={
+            "branch_id": str(branch_id),
+            "attendance_status": "present",
+            "note": "Correction from parent call",
+            "reason": "Parent confirmed attendance",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    with client.session_transaction() as session:
+        session.clear()
+    csrf = _csrf_from_login_page(client)
+    client.post(
+        "/login",
+        data={
+            "email": manager.email,
+            "password": "password12345",
+            "_csrf_token": csrf,
+        },
+    )
+    approvals = client.get(f"/academies/{academy_id}/approvals")
+    body = approvals.get_data(as_text=True)
+
+    assert approvals.status_code == 200
+    assert "Approval workflow" in body
+    assert "Reschedule approval queue" in body
+    assert "Attendance correction queue" in body
+    assert "Lesson summary correction queue" in body
+    assert "Teacher requested a better time" in body
+    assert "Parent confirmed attendance" in body
+    assert "Clarify published summary" in body
+
+    reschedule_request = db.session.scalar(db.select(ScheduleChangeRequest))
+    attendance_request = db.session.scalar(db.select(AttendanceEditRequest))
+    summary_request = db.session.scalar(db.select(LessonSummaryEditRequest))
+
+    client.post(
+        (
+            f"/academies/{academy_id}/approvals/reschedule/"
+            f"{reschedule_request.id}/approve"
+        ),
+        data={
+            "branch_id": str(branch_id),
+            "reason": "Operationally approved",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    approvals = client.get(f"/academies/{academy_id}/approvals")
+    body = approvals.get_data(as_text=True)
+    client.post(
+        (
+            f"/academies/{academy_id}/approvals/attendance/"
+            f"{attendance_request.id}/approve"
+        ),
+        data={
+            "branch_id": str(branch_id),
+            "reason": "Attendance correction verified",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+    approvals = client.get(f"/academies/{academy_id}/approvals")
+    body = approvals.get_data(as_text=True)
+    client.post(
+        (
+            f"/academies/{academy_id}/approvals/lesson-summary/"
+            f"{summary_request.id}/reject"
+        ),
+        data={
+            "branch_id": str(branch_id),
+            "reason": "Keep original wording",
+            "_csrf_token": _csrf_from_body(body),
+        },
+    )
+
+    db.session.refresh(attendance)
+    db.session.refresh(summary)
+    db.session.refresh(reschedule_request)
+    db.session.refresh(attendance_request)
+    db.session.refresh(summary_request)
+
+    assert reschedule_request.status == "approved"
+    assert reschedule_request.replacement_schedule_id is not None
+    assert attendance_request.status == "approved"
+    assert attendance.attendance_status == "present"
+    assert summary_request.status == "rejected"
+    assert summary.class_summary == "Published wording."
 
 
 def test_session_cookie_security_defaults():

@@ -15,6 +15,7 @@ from app.models.attendance import Attendance
 from app.models.branch import Branch
 from app.models.class_session import ClassSession
 from app.models.notification import Notification
+from app.models.parent import Parent
 from app.models.parent_student import ParentStudent
 from app.models.schedule import Schedule
 from app.models.student import Student
@@ -143,18 +144,15 @@ class AnalyticsService:
         end_date: date | None,
     ) -> dict[str, object]:
         branches = self.branch_repository.list_for_academy(academy_id)
+        branch_payloads = [
+            self._branch_kpi(branch, start_date=start_date, end_date=end_date)
+            for branch in branches
+        ]
         return {
             "academy_id": str(academy_id),
             "period": self._serialize_period(start_date, end_date),
-            "branches": [
-                self._branch_kpi(branch, start_date=start_date, end_date=end_date)
-                for branch in branches
-            ],
-            "totals": self._academy_totals(
-                academy_id,
-                start_date=start_date,
-                end_date=end_date,
-            ),
+            "branches": branch_payloads,
+            "totals": self._academy_totals_from_branches(branch_payloads),
         }
 
     def _branch_kpi(
@@ -189,6 +187,24 @@ class AnalyticsService:
             start_date=start_date,
             end_date=end_date,
         )
+        cancelled_sessions = self._session_count(
+            branch.academy_id,
+            branch.id,
+            status=SessionStatus.CANCELLED,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        rescheduled_sessions = self._session_count(
+            branch.academy_id,
+            branch.id,
+            status=SessionStatus.RESCHEDULED,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        stable_sessions = max(
+            scheduled_sessions - cancelled_sessions - rescheduled_sessions,
+            0,
+        )
         return {
             "academy_id": str(branch.academy_id),
             "branch_id": str(branch.id),
@@ -205,6 +221,9 @@ class AnalyticsService:
             "scheduled_sessions": scheduled_sessions,
             "completed_sessions": completed_sessions,
             "completion_rate": self._ratio(completed_sessions, scheduled_sessions),
+            "cancelled_sessions": cancelled_sessions,
+            "rescheduled_sessions": rescheduled_sessions,
+            "stability_rate": self._ratio(stable_sessions, scheduled_sessions),
             "attendance": attendance,
             "revenue": revenue,
             "teacher_workload": self._teacher_workload(
@@ -221,102 +240,102 @@ class AnalyticsService:
             ),
         }
 
-    def _academy_totals(
-        self,
-        academy_id: UUID,
-        *,
-        start_date: date | None,
-        end_date: date | None,
-    ) -> dict[str, object]:
-        branch_ids = [
-            branch.id
-            for branch in self.branch_repository.list_for_academy(academy_id)
-        ]
-        if not branch_ids:
+    def _academy_totals_from_branches(self, branches: list[dict[str, object]]) -> dict[str, object]:
+        if not branches:
             return {
                 "active_students": 0,
                 "active_teachers": 0,
                 "scheduled_sessions": 0,
                 "completed_sessions": 0,
+                "cancelled_sessions": 0,
+                "rescheduled_sessions": 0,
                 "completion_rate": 0.0,
                 "attendance_rate": 0.0,
+                "stability_rate": 0.0,
+                "teacher_workload": {
+                    "assigned_teachers": 0,
+                    "teachers_with_sessions": 0,
+                    "total_sessions": 0,
+                    "max_sessions_per_teacher": 0,
+                    "average_sessions_per_teacher": 0.0,
+                },
+                "parent_engagement": {
+                    "linked_students": 0,
+                    "notifications_sent": 0,
+                },
                 "issued_revenue_minor": 0,
                 "collected_revenue_minor": 0,
                 "outstanding_revenue_minor": 0,
             }
-
-        active_students = sum(
-            self.branch_repository.active_student_count(academy_id, branch_id)
-            for branch_id in branch_ids
+        active_students = sum(item["active_students"] for item in branches)
+        active_teachers = sum(item["active_teachers"] for item in branches)
+        scheduled_sessions = sum(item["scheduled_sessions"] for item in branches)
+        completed_sessions = sum(item["completed_sessions"] for item in branches)
+        cancelled_sessions = sum(item["cancelled_sessions"] for item in branches)
+        rescheduled_sessions = sum(item["rescheduled_sessions"] for item in branches)
+        stable_sessions = max(
+            scheduled_sessions - cancelled_sessions - rescheduled_sessions,
+            0,
         )
-        active_teachers = db.session.scalar(
-            select(func.count(TeacherBranch.id)).where(
-                TeacherBranch.academy_id == academy_id,
-                TeacherBranch.branch_id.in_(branch_ids),
-                TeacherBranch.assignment_status == "active",
-            )
-        ) or 0
-        scheduled_sessions = sum(
-            self._session_count(
-                academy_id,
-                branch_id,
-                start_date=start_date,
-                end_date=end_date,
-            )
-            for branch_id in branch_ids
-        )
-        completed_sessions = sum(
-            self._session_count(
-                academy_id,
-                branch_id,
-                status=SessionStatus.COMPLETED,
-                start_date=start_date,
-                end_date=end_date,
-            )
-            for branch_id in branch_ids
-        )
-        attendance_totals = [
-            self._attendance_metrics(
-                academy_id=academy_id,
-                branch_id=branch_id,
-                start_date=start_date,
-                end_date=end_date,
-            )
-            for branch_id in branch_ids
-        ]
-        revenue_totals = [
-            self._revenue_metrics(
-                academy_id=academy_id,
-                branch_id=branch_id,
-                start_date=start_date,
-                end_date=end_date,
-            )
-            for branch_id in branch_ids
-        ]
         attendance_records = sum(
-            item["total_records"] for item in attendance_totals
+            item["attendance"]["total_records"] for item in branches
         )
         attended_records = sum(
-            item["attended_records"] for item in attendance_totals
+            item["attendance"]["attended_records"] for item in branches
+        )
+        teacher_total_sessions = sum(
+            item["teacher_workload"]["total_sessions"] for item in branches
+        )
+        teachers_with_sessions = sum(
+            item["teacher_workload"]["teachers_with_sessions"] for item in branches
+        )
+        linked_students = sum(
+            item["parent_engagement"]["linked_students"] for item in branches
+        )
+        notifications_sent = sum(
+            item["parent_engagement"]["notifications_sent"] for item in branches
         )
         return {
             "active_students": active_students,
             "active_teachers": active_teachers,
             "scheduled_sessions": scheduled_sessions,
             "completed_sessions": completed_sessions,
+            "cancelled_sessions": cancelled_sessions,
+            "rescheduled_sessions": rescheduled_sessions,
             "completion_rate": self._ratio(
                 completed_sessions,
                 scheduled_sessions,
             ),
             "attendance_rate": self._ratio(attended_records, attendance_records),
+            "stability_rate": self._ratio(stable_sessions, scheduled_sessions),
+            "teacher_workload": {
+                "assigned_teachers": active_teachers,
+                "teachers_with_sessions": teachers_with_sessions,
+                "total_sessions": teacher_total_sessions,
+                "max_sessions_per_teacher": max(
+                    (
+                        item["teacher_workload"]["max_sessions_per_teacher"]
+                        for item in branches
+                    ),
+                    default=0,
+                ),
+                "average_sessions_per_teacher": self._ratio(
+                    teacher_total_sessions,
+                    teachers_with_sessions,
+                ),
+            },
+            "parent_engagement": {
+                "linked_students": linked_students,
+                "notifications_sent": notifications_sent,
+            },
             "issued_revenue_minor": sum(
-                item["issued_revenue_minor"] for item in revenue_totals
+                item["revenue"]["issued_revenue_minor"] for item in branches
             ),
             "collected_revenue_minor": sum(
-                item["collected_revenue_minor"] for item in revenue_totals
+                item["revenue"]["collected_revenue_minor"] for item in branches
             ),
             "outstanding_revenue_minor": sum(
-                item["outstanding_revenue_minor"] for item in revenue_totals
+                item["revenue"]["outstanding_revenue_minor"] for item in branches
             ),
         }
 
@@ -486,9 +505,21 @@ class AnalyticsService:
                 Student.status == "active",
             )
         ) or 0
-        notification_query = select(func.count(Notification.id)).where(
-            Notification.academy_id == academy_id,
-            Notification.payload["branch_id"].as_string() == str(branch_id),
+        notification_query = (
+            select(func.count(func.distinct(Notification.id)))
+            .join(Parent, Parent.user_id == Notification.recipient_user_id)
+            .join(ParentStudent, ParentStudent.parent_id == Parent.id)
+            .join(Student, Student.id == ParentStudent.student_id)
+            .where(
+                Notification.academy_id == academy_id,
+                Parent.academy_id == academy_id,
+                Parent.status == "active",
+                ParentStudent.academy_id == academy_id,
+                ParentStudent.relationship_status == "active",
+                Student.academy_id == academy_id,
+                Student.home_branch_id == branch_id,
+                Student.status == "active",
+            )
         )
         if start_date is not None:
             notification_query = notification_query.where(

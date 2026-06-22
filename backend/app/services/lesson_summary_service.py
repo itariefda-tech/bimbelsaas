@@ -119,19 +119,6 @@ class LessonSummaryService:
             previous_data=previous,
             new_data=self.serialize(summary),
         )
-        ParentNotificationService().emit_for_class(
-            academy_id=academy_id,
-            branch_id=branch_id,
-            class_id=summary.class_id,
-            notification_type="lesson_summary.published",
-            priority="medium",
-            title="New lesson summary",
-            payload={
-                "session_id": str(session.id),
-                "lesson_summary_id": str(summary.id),
-            },
-            dedup_key=f"lesson_summary.published:{summary.id}",
-        )
         db.session.commit()
         return summary
 
@@ -168,6 +155,19 @@ class LessonSummaryService:
             "lesson_summary.published",
             previous_data=previous,
             new_data=self.serialize(summary),
+        )
+        ParentNotificationService().emit_for_class(
+            academy_id=academy_id,
+            branch_id=branch_id,
+            class_id=summary.class_id,
+            notification_type="lesson_summary.published",
+            priority="medium",
+            title="New lesson summary",
+            payload={
+                "session_id": str(session.id),
+                "lesson_summary_id": str(summary.id),
+            },
+            dedup_key=f"lesson_summary.published:{summary.id}",
         )
         db.session.commit()
         return summary

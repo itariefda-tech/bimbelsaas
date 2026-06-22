@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Operations - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Daily operations</p>
+        <h1>{{ schedule.academic_class.class_name if schedule.academic_class else "Class session" }}</h1>
+        <p class="lead">{{ format_datetime(schedule.starts_at) }} - {{ format_datetime(schedule.ends_at) }} / {{ schedule.teacher.full_name if schedule.teacher else "Teacher" }} / {{ schedule.room.room_name if schedule.room else "Room" }}</p>
+      </div>
+      <div class="hero-actions">
+        <a class="secondary-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="secondary-link" href="{{ url_for('approval_workflow_page', academy_id=academy.id) }}">Approvals</a>
+        <a class="secondary-link" href="{{ url_for('schedule_detail_page', academy_id=academy.id, schedule_id=schedule.id) }}">Schedule detail</a>
+      </div>
+    </section>
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Completion state</p>
+        <h2>Today readiness</h2>
+      </div>
+      <div class="state-grid">
+        <article class="state-item">
+          <span>Attendance</span>
+          <h3>{{ session.attendance_status }}</h3>
+          <p>{% if session.attendance_finalized_at %}Finalized at {{ format_datetime(session.attendance_finalized_at) }}.{% else %}Draft remains private until finalized.{% endif %}</p>
+        </article>
+        <article class="state-item">
+          <span>Lesson summary</span>
+          <h3>{{ summary.status if summary else "missing" }}</h3>
+          <p>{% if summary and summary.published_at %}Published at {{ format_datetime(summary.published_at) }}.{% else %}Draft remains private until published.{% endif %}</p>
+        </article>
+        <article class="state-item">
+          <span>Roster</span>
+          <h3>{{ roster|length }} students</h3>
+          <p>Every active student needs an attendance row before finalization.</p>
+        </article>
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Attendance UI</p>
+          <h2>Session roster</h2>
+        </div>
+        {% if roster %}
+          <form class="tenant-form" method="post" action="{{ url_for('daily_attendance_submit', academy_id=academy.id, session_id=session.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <div class="attendance-list">
+              {% for student in roster %}
+                {% set attendance = attendance_by_student.get(student.id) %}
+                <article class="attendance-row">
+                  <div>
+                    <h3>{{ student.full_name }}</h3>
+                    <p>{{ student.student_code }}</p>
+                  </div>
+                  <label>
+                    Status
+                    <select name="attendance_status_{{ student.id }}" {% if not can_edit_attendance %}disabled{% endif %} required>
+                      {% for status in ["present", "late", "absent", "excused", "online"] %}
+                        <option value="{{ status }}" {% if attendance and attendance.attendance_status == status %}selected{% endif %}>{{ status }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
+                  <label>
+                    Note
+                    <input name="attendance_note_{{ student.id }}" value="{{ attendance.note if attendance and attendance.note else '' }}" {% if not can_edit_attendance %}disabled{% endif %}>
+                  </label>
+                </article>
+              {% endfor %}
+            </div>
+            {% if can_edit_attendance %}
+              <button class="primary-button" type="submit">Save attendance draft</button>
+            {% endif %}
+          </form>
+          {% if can_finalize_attendance %}
+            <form class="form-actions" method="post" action="{{ url_for('daily_attendance_finalize_submit', academy_id=academy.id, session_id=session.id) }}">
+              <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+              <button class="primary-button" type="submit">Finalize attendance</button>
+            </form>
+          {% endif %}
+          {% if not can_edit_attendance and attendance_by_student %}
+            <div class="section-heading inline-section-heading">
+              <p class="eyebrow">Correction request</p>
+              <h2>Locked attendance</h2>
+            </div>
+            <div class="attendance-list">
+              {% for student in roster %}
+                {% set attendance = attendance_by_student.get(student.id) %}
+                {% if attendance %}
+                  <form class="attendance-row" method="post" action="{{ url_for('attendance_edit_request_submit', academy_id=academy.id, attendance_id=attendance.id) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="branch_id" value="{{ session.branch_id }}">
+                    <div>
+                      <h3>{{ student.full_name }}</h3>
+                      <p>Current: {{ attendance.attendance_status }}</p>
+                    </div>
+                    <label>
+                      Proposed status
+                      <select name="attendance_status" required>
+                        {% for status in ["present", "late", "absent", "excused", "online"] %}
+                          <option value="{{ status }}" {% if attendance.attendance_status == status %}selected{% endif %}>{{ status }}</option>
+                        {% endfor %}
+                      </select>
+                    </label>
+                    <label>
+                      Proposed note
+                      <input name="note" value="{{ attendance.note if attendance.note else '' }}">
+                    </label>
+                    <label>
+                      Reason
+                      <input name="reason" required>
+                    </label>
+                    <button class="primary-button" type="submit">Request correction</button>
+                  </form>
+                {% endif %}
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% else %}
+          <div class="empty-state">
+            <h3>No active roster</h3>
+            <p>Enroll students into the class before attendance can be finalized.</p>
+          </div>
+        {% endif %}
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Lesson summary</p>
+          <h2>Draft and publish</h2>
+        </div>
+        <form class="tenant-form" method="post" action="{{ url_for('daily_lesson_summary_submit', academy_id=academy.id, session_id=session.id) }}">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+          <label>
+            Topic
+            <input name="lesson_topic" value="{{ summary_form.lesson_topic }}" {% if not can_edit_summary %}disabled{% endif %} required>
+          </label>
+          <label>
+            Class summary
+            <textarea name="class_summary" {% if not can_edit_summary %}disabled{% endif %} required>{{ summary_form.class_summary }}</textarea>
+          </label>
+          <label>
+            Teacher notes
+            <textarea name="teacher_notes" {% if not can_edit_summary %}disabled{% endif %}>{{ summary_form.teacher_notes or "" }}</textarea>
+          </label>
+          <label>
+            Homework
+            <textarea name="homework" {% if not can_edit_summary %}disabled{% endif %}>{{ summary_form.homework or "" }}</textarea>
+          </label>
+          <label>
+            Student attention notes
+            <textarea name="student_attention_notes" {% if not can_edit_summary %}disabled{% endif %}>{{ summary_form.student_attention_notes or "" }}</textarea>
+          </label>
+          {% if can_edit_summary %}
+            <button class="primary-button" type="submit">Save summary draft</button>
+          {% endif %}
+        </form>
+        {% if can_publish_summary %}
+          <form class="form-actions" method="post" action="{{ url_for('daily_lesson_summary_publish_submit', academy_id=academy.id, session_id=session.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="primary-button" type="submit">Publish summary</button>
+          </form>
+        {% endif %}
+        {% if summary and summary.status == "published" %}
+          <div class="section-heading inline-section-heading">
+            <p class="eyebrow">Correction request</p>
+            <h2>Locked summary</h2>
+          </div>
+          <form class="tenant-form" method="post" action="{{ url_for('lesson_summary_edit_request_submit', academy_id=academy.id, summary_id=summary.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="branch_id" value="{{ session.branch_id }}">
+            <label>
+              Proposed topic
+              <input name="lesson_topic" value="{{ summary.lesson_topic }}" required>
+            </label>
+            <label>
+              Proposed class summary
+              <textarea name="class_summary" required>{{ summary.class_summary }}</textarea>
+            </label>
+            <label>
+              Proposed teacher notes
+              <textarea name="teacher_notes">{{ summary.teacher_notes or "" }}</textarea>
+            </label>
+            <label>
+              Proposed homework
+              <textarea name="homework">{{ summary.homework or "" }}</textarea>
+            </label>
+            <label>
+              Proposed student attention notes
+              <textarea name="student_attention_notes">{{ summary.student_attention_notes or "" }}</textarea>
+            </label>
+            <label>
+              Reason
+              <textarea name="reason" required></textarea>
+            </label>
+            <button class="primary-button" type="submit">Request summary correction</button>
+          </form>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}

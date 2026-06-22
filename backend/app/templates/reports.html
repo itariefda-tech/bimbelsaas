@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+
+{% block title %}Branch Reports - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Reporting and oversight</p>
+        <h1>{{ selected_branch.name }} Report</h1>
+        <p class="lead">Attendance consistency, schedule stability, teacher workload, and parent engagement for branch operations.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="secondary-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+        <a class="secondary-link" href="{{ url_for('approval_workflow_page', academy_id=academy.id) }}">Approvals</a>
+        <a class="secondary-link" href="{{ url_for('schedule_setup_page', academy_id=academy.id) }}">Schedules</a>
+      </div>
+    </section>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Report filters</p>
+        <h2>Scope and period</h2>
+      </div>
+      <form class="tenant-form" method="get" action="{{ url_for('branch_reports_page', academy_id=academy.id) }}">
+        <div class="form-row form-row-wide">
+          <label>
+            Branch
+            <select name="branch_id">
+              {% for branch in branches %}
+                <option value="{{ branch.id }}" {% if branch.id == selected_branch.id %}selected{% endif %}>{{ branch.name }} / {{ branch.code }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            From
+            <input name="from" type="date" value="{{ start_date }}">
+          </label>
+        </div>
+        <div class="form-row form-row-wide">
+          <label>
+            To
+            <input name="to" type="date" value="{{ end_date }}">
+          </label>
+          <label>
+            Period
+            <input value="{{ kpi.period['from'] or 'All time' }} - {{ kpi.period['to'] or 'Now' }}" disabled>
+          </label>
+        </div>
+        <button class="primary-button" type="submit">Apply report filters</button>
+      </form>
+    </section>
+
+    {% if can_view_academy_rollup and academy_report %}
+      <section class="work-panel state-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Academy Director reporting workflow</p>
+          <h2>Academy-wide branch rollup</h2>
+        </div>
+        <div class="state-grid">
+          <article class="state-item">
+            <span>Attendance consistency</span>
+            <h3>{{ percent(academy_report.totals.attendance_rate) }}</h3>
+            <p>Rollup across {{ academy_report.branches|length }} visible branches.</p>
+          </article>
+          <article class="state-item">
+            <span>Schedule stability</span>
+            <h3>{{ percent(academy_report.totals.stability_rate) }}</h3>
+            <p>{{ academy_report.totals.cancelled_sessions }} cancelled and {{ academy_report.totals.rescheduled_sessions }} rescheduled sessions.</p>
+          </article>
+          <article class="state-item">
+            <span>Teacher workload</span>
+            <h3>{{ decimal(academy_report.totals.teacher_workload.average_sessions_per_teacher) }}</h3>
+            <p>{{ academy_report.totals.teacher_workload.total_sessions }} sessions across {{ academy_report.totals.teacher_workload.teachers_with_sessions }} active teaching loads.</p>
+          </article>
+          <article class="state-item">
+            <span>Parent engagement</span>
+            <h3>{{ academy_report.totals.parent_engagement.notifications_sent }}</h3>
+            <p>Notifications for {{ academy_report.totals.parent_engagement.linked_students }} linked students.</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Branch comparison table</p>
+          <h2>Operational comparison</h2>
+        </div>
+        {% if academy_report.branches %}
+          <div class="report-table-wrap">
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Branch</th>
+                  <th>Attendance</th>
+                  <th>Stability</th>
+                  <th>Teacher workload</th>
+                  <th>Parent engagement</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for branch in academy_report.branches %}
+                  <tr>
+                    <td>
+                      <strong>{{ branch.branch_name }}</strong>
+                      <span>{{ branch.active_students }} students / {{ branch.active_teachers }} teachers</span>
+                    </td>
+                    <td>{{ percent(branch.attendance.attendance_rate) }}</td>
+                    <td>{{ percent(branch.stability_rate) }}</td>
+                    <td>{{ decimal(branch.teacher_workload.average_sessions_per_teacher) }} avg / {{ branch.teacher_workload.max_sessions_per_teacher }} max</td>
+                    <td>{{ branch.parent_engagement.notifications_sent }} updates / {{ branch.parent_engagement.linked_students }} links</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <h3>No branch report data</h3>
+            <p>Create branches and operational sessions before academy-wide rollup can compare activity.</p>
+          </div>
+        {% endif %}
+      </section>
+    {% endif %}
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Branch manager report view</p>
+        <h2>Operational scorecard</h2>
+      </div>
+      <div class="state-grid">
+        <article class="state-item">
+          <span>Attendance consistency</span>
+          <h3>{{ percent(kpi.attendance.attendance_rate) }}</h3>
+          <p>{{ kpi.attendance.attended_records }} attended records from {{ kpi.attendance.total_records }} attendance rows.</p>
+        </article>
+        <article class="state-item">
+          <span>Schedule stability</span>
+          <h3>{{ percent(kpi.stability_rate) }}</h3>
+          <p>{{ kpi.cancelled_sessions }} cancelled and {{ kpi.rescheduled_sessions }} rescheduled from {{ kpi.scheduled_sessions }} sessions.</p>
+        </article>
+        <article class="state-item">
+          <span>Teacher workload</span>
+          <h3>{{ decimal(kpi.teacher_workload.average_sessions_per_teacher) }}</h3>
+          <p>Average sessions per active teacher with scheduled work.</p>
+        </article>
+        <article class="state-item">
+          <span>Parent engagement</span>
+          <h3>{{ kpi.parent_engagement.notifications_sent }}</h3>
+          <p>Notifications sent to active parent links for {{ kpi.parent_engagement.linked_students }} linked students.</p>
+        </article>
+      </div>
+    </section>
+
+    <div class="tenant-grid">
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Attendance detail</p>
+          <h2>Consistency by status</h2>
+        </div>
+        <div class="workflow-list">
+          {% for status, count in kpi.attendance.by_status.items() %}
+            <article class="workflow-item">
+              <span>{{ status }}</span>
+              <div>
+                <h3>{{ count }} records</h3>
+                <p>Attendance rows recorded for {{ selected_branch.name }} in the selected period.</p>
+              </div>
+              <strong>{{ percent(count / kpi.attendance.total_records if kpi.attendance.total_records else 0) }}</strong>
+            </article>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="work-panel">
+        <div class="section-heading">
+          <p class="eyebrow">Schedule and workload</p>
+          <h2>Stability signals</h2>
+        </div>
+        <div class="workflow-list">
+          <article class="workflow-item">
+            <span>Sessions</span>
+            <div>
+              <h3>{{ kpi.completed_sessions }} completed / {{ kpi.scheduled_sessions }} scheduled</h3>
+              <p>Completion rate indicates whether scheduled operations are being closed properly.</p>
+            </div>
+            <strong>{{ percent(kpi.completion_rate) }}</strong>
+          </article>
+          <article class="workflow-item">
+            <span>Teachers</span>
+            <div>
+              <h3>{{ kpi.teacher_workload.teachers_with_sessions }} teaching / {{ kpi.teacher_workload.assigned_teachers }} assigned</h3>
+              <p>Highest load is {{ kpi.teacher_workload.max_sessions_per_teacher }} sessions for one teacher.</p>
+            </div>
+            <strong>{{ kpi.teacher_workload.total_sessions }}</strong>
+          </article>
+          <article class="workflow-item">
+            <span>Parents</span>
+            <div>
+              <h3>{{ kpi.parent_engagement.linked_students }} linked students</h3>
+              <p>Parent engagement improves when finalized attendance and published summaries generate visible updates.</p>
+            </div>
+            <strong>{{ kpi.parent_engagement.notifications_sent }}</strong>
+          </article>
+        </div>
+      </section>
+    </div>
+  </div>
+{% endblock %}

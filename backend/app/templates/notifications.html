@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Notification Center - BimbelSaaS{% endblock %}
+
+{% block content %}
+  <div class="tenant-shell">
+    <section class="work-panel tenant-hero">
+      <div>
+        <p class="eyebrow">Notification center</p>
+        <h1>Operational inbox</h1>
+        <p class="lead">Role-scoped updates for schedule changes, attendance, lesson summaries, and parent-facing events.</p>
+      </div>
+      <div class="hero-actions">
+        <a class="secondary-link" href="{{ url_for('dashboard') }}">Dashboard</a>
+        {% if unread_only %}
+          <a class="primary-link" href="{{ url_for('notifications_page') }}">Show all</a>
+        {% else %}
+          <a class="primary-link" href="{{ url_for('notifications_page', unread_only='true') }}">Unread only</a>
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="work-panel state-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Inbox health</p>
+        <h2>Unread and priority groups</h2>
+      </div>
+      <div class="state-grid">
+        <article class="state-item">
+          <span>Unread</span>
+          <h3>{{ unread_count }}</h3>
+          <p>Unread items stay visible until each recipient marks them read.</p>
+        </article>
+        <article class="state-item">
+          <span>High priority</span>
+          <h3>{{ grouped.high|length }}</h3>
+          <p>Urgent operational changes should appear at the top of the inbox.</p>
+        </article>
+        <article class="state-item">
+          <span>Current filter</span>
+          <h3>{{ "Unread" if unread_only else "All" }}</h3>
+          <p>Switch filters without changing the recipient scope.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="work-panel">
+      <div class="section-heading">
+        <p class="eyebrow">Notifications</p>
+        <h2>Latest updates</h2>
+      </div>
+      {% if items %}
+        <div class="notification-list">
+          {% for item in items %}
+            <article class="notification-item priority-{{ item.priority }} {% if item.read_at %}is-read{% endif %}">
+              <div>
+                <span>{{ item.priority }} / {{ item.type }}</span>
+                <h3>{{ item.title }}</h3>
+                <p>{{ format_notification_time(item.created_at) }}</p>
+                {% if item.payload %}
+                  <p class="notification-payload">
+                    {% for key, value in item.payload.items() %}
+                      {{ key }}: {{ value }}{% if not loop.last %} / {% endif %}
+                    {% endfor %}
+                  </p>
+                {% endif %}
+              </div>
+              <div class="notification-actions">
+                {% if item.read_at %}
+                  <strong>Read {{ format_notification_time(item.read_at) }}</strong>
+                {% else %}
+                  <strong>Unread</strong>
+                  <form method="post" action="{{ url_for('notification_mark_read_submit', notification_id=item.id) }}">
+                    <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="unread_only" value="{{ 'true' if unread_only else 'false' }}">
+                    <button class="primary-button" type="submit">Mark read</button>
+                  </form>
+                {% endif %}
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="empty-state">
+          <h3>No notifications yet</h3>
+          <p>Schedule, attendance, and lesson summary events will appear here when they are emitted for this user.</p>
+        </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

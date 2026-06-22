@@ -12,6 +12,7 @@
       </div>
       <div class="hero-actions">
         <a class="primary-link" href="{{ url_for('parent_registration_page', academy_id=academy.id) }}">Parents</a>
+        <a class="secondary-link" href="{{ url_for('approval_workflow_page', academy_id=academy.id) }}">Approvals</a>
         <a class="secondary-link" href="{{ url_for('student_registration_page', academy_id=academy.id) }}">Students</a>
         <a class="secondary-link" href="{{ url_for('class_room_setup_page', academy_id=academy.id) }}">Classes</a>
         {% if can_access_tenants %}
@@ -204,8 +205,76 @@
             <span>Session</span>
             <h3>{{ selected_schedule.session.status if selected_schedule.session else "pending" }}</h3>
             <p>{{ format_datetime(selected_schedule.starts_at) }} - {{ format_datetime(selected_schedule.ends_at) }}</p>
+            {% if selected_schedule.session %}
+              <p><a class="state-link" href="{{ url_for('daily_operations_page', academy_id=academy.id, session_id=selected_schedule.session.id) }}">Open daily operations</a></p>
+            {% endif %}
           </article>
         </div>
+        {% if can_request_reschedule(selected_schedule) %}
+          <div class="section-heading inline-section-heading">
+            <p class="eyebrow">Approval workflow</p>
+            <h2>Request reschedule</h2>
+          </div>
+          <form class="tenant-form" method="post" action="{{ url_for('reschedule_request_submit', academy_id=academy.id, schedule_id=selected_schedule.id) }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="branch_id" value="{{ selected_schedule.branch_id }}">
+            <div class="form-row form-row-wide">
+              <label>
+                Proposed teacher
+                <select name="teacher_id" required>
+                  {% for teacher in teachers_by_branch[selected_schedule.branch_id] %}
+                    <option value="{{ teacher.id }}" {% if teacher.id == selected_schedule.teacher_id %}selected{% endif %}>{{ teacher.full_name }} / {{ teacher.teacher_code }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+              <label>
+                Proposed room
+                <select name="room_id" required>
+                  {% for room in rooms_by_branch[selected_schedule.branch_id] %}
+                    <option value="{{ room.id }}" {% if room.id == selected_schedule.room_id %}selected{% endif %}>{{ room.room_name }} / capacity {{ room.capacity }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </div>
+            <div class="form-row form-row-wide">
+              <label>
+                Proposed starts at
+                <input name="starts_at" type="datetime-local" value="{{ datetime_local_value(selected_schedule.starts_at) }}" required>
+              </label>
+              <label>
+                Proposed ends at
+                <input name="ends_at" type="datetime-local" value="{{ datetime_local_value(selected_schedule.ends_at) }}" required>
+              </label>
+            </div>
+            <label>
+              Timezone
+              <input name="timezone" value="{{ selected_schedule.timezone }}" required>
+            </label>
+            <label>
+              Reason
+              <textarea name="reason" required></textarea>
+            </label>
+            <button class="primary-button" type="submit">Request reschedule</button>
+          </form>
+        {% endif %}
+        {% if selected_reschedule_requests %}
+          <div class="section-heading inline-section-heading">
+            <p class="eyebrow">Reschedule requests</p>
+            <h2>Decision history</h2>
+          </div>
+          <div class="workflow-list">
+            {% for change in selected_reschedule_requests %}
+              <article class="workflow-item">
+                <span>{{ change.status }}</span>
+                <div>
+                  <h3>{{ format_datetime(change.proposed_starts_at) }} - {{ format_datetime(change.proposed_ends_at) }}</h3>
+                  <p>{{ change.reason }}{% if change.decision_reason %} / decision: {{ change.decision_reason }}{% endif %}</p>
+                </div>
+                <strong>{{ change.requester_role }}</strong>
+              </article>
+            {% endfor %}
+          </div>
+        {% endif %}
       {% else %}
         <div class="empty-state">
           <h3>Schedule detail is waiting</h3>

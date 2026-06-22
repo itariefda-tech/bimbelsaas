@@ -431,6 +431,11 @@ class RescheduleService:
             Permission.SCHEDULE_APPROVE_RESCHEDULE,
             target,
         )
+        if change.requested_by == principal.user.id:
+            raise AuthorizationError(
+                "Reschedule requests cannot be self-approved.",
+                "reschedule_self_approval_denied",
+            )
         approver_roles = self._allowed_roles(
             principal, Permission.SCHEDULE_APPROVE_RESCHEDULE, target
         )

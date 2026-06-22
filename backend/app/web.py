@@ -25,21 +25,33 @@ from app.extensions import db
 from app.models.academy import Academy
 from app.models.branch import Branch
 from app.models.class_student import ClassStudent
+from app.models.class_session import ClassSession
+from app.models.attendance_edit_request import AttendanceEditRequest
+from app.models.lesson_summary_edit_request import LessonSummaryEditRequest
 from app.models.role_assignment import RoleAssignment
+from app.models.schedule_change_request import ScheduleChangeRequest
 from app.models.student import Student
 from app.models.user import User
 from app.permissions.constants import Permission, Role, ScopeType
+from app.repositories.attendance_repository import AttendanceRepository
+from app.repositories.lesson_summary_repository import LessonSummaryRepository
 from app.repositories.parent_repository import ParentRepository, ParentStudentRepository
 from app.repositories.role_assignment_repository import RoleAssignmentRepository
 from app.repositories.schedule_repository import ScheduleRepository
 from app.repositories.user_repository import UserRepository
 from app.services.academy_service import AcademyService
+from app.services.analytics_service import AnalyticsService
+from app.services.attendance_service import AttendanceService
 from app.services.auth_service import AuthService
 from app.services.authorization_service import AuthorizationService
 from app.services.branch_service import BranchService
 from app.services.class_service import ClassService
 from app.permissions.context import AuthorizationTarget
 from app.services.identity_service import IdentityService
+from app.services.lesson_summary_service import LessonSummaryService
+from app.services.notification_service import NotificationService
+from app.services.parent_experience_service import ParentExperienceService
+from app.services.reschedule_service import RescheduleService
 from app.services.room_service import RoomService
 from app.services.schedule_service import ScheduleService
 from app.services.student_service import StudentService
@@ -87,6 +99,8 @@ class DashboardContext:
     state_title: str
     state_items: list[dict[str, str]]
     schedule_items: list[dict[str, str]]
+    operational_items: list[dict[str, str]]
+    report_href: str
 
 
 ROLE_UI = {
@@ -463,6 +477,7 @@ def register_web(app: Flask) -> None:
             "csrf_token": _csrf_token,
             "demo_login_hints_enabled": app.config["DEMO_LOGIN_HINTS_ENABLED"],
             "demo_password": app.config["DEMO_PASSWORD"],
+            "notification_summary": _notification_summary(),
         }
 
     @app.get("/")
@@ -539,6 +554,39 @@ def register_web(app: Flask) -> None:
             role_labels=ROLE_LABELS,
             context=_dashboard_context(principal, selected_role),
         )
+
+    @app.get("/notifications")
+    def notifications_page():
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        unread_only = request.args.get("unread_only", "false").lower() == "true"
+        return _render_notifications(principal, unread_only=unread_only)
+
+    @app.post("/notifications/<uuid:notification_id>/read")
+    def notification_mark_read_submit(notification_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        unread_only = request.form.get("unread_only", "false") == "true"
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang notification center.", "error")
+            return _render_notifications(
+                principal,
+                unread_only=unread_only,
+                status_code=400,
+            )
+        try:
+            NotificationService().mark_read(principal, notification_id)
+        except AppError as error:
+            flash(error.message, "error")
+            return _render_notifications(
+                principal,
+                unread_only=unread_only,
+                status_code=error.status_code,
+            )
+        flash("Notification marked as read.", "success")
+        return redirect(url_for("notifications_page", unread_only=str(unread_only).lower()))
 
     @app.get("/tenants")
     def tenant_registration_page():
@@ -656,6 +704,27 @@ def register_web(app: Flask) -> None:
         if principal is None:
             return redirect(url_for("login_page"))
         return _render_schedules(principal, academy_id, selected_schedule_id=schedule_id)
+
+    @app.get("/academies/<uuid:academy_id>/sessions/<uuid:session_id>/daily-operations")
+    def daily_operations_page(academy_id, session_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        return _render_daily_operations(principal, academy_id, session_id)
+
+    @app.get("/academies/<uuid:academy_id>/approvals")
+    def approval_workflow_page(academy_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        return _render_approvals(principal, academy_id)
+
+    @app.get("/academies/<uuid:academy_id>/reports")
+    def branch_reports_page(academy_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        return _render_branch_reports(principal, academy_id)
 
     @app.post("/academies/<uuid:academy_id>/setup")
     def academy_setup_submit(academy_id):
@@ -1427,6 +1496,274 @@ def register_web(app: Flask) -> None:
             )
         )
 
+    @app.post("/academies/<uuid:academy_id>/schedules/<uuid:schedule_id>/reschedule-requests")
+    def reschedule_request_submit(academy_id, schedule_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        form = _reschedule_request_form()
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang schedule detail.", "error")
+            return _render_schedules(
+                principal,
+                academy_id,
+                selected_schedule_id=schedule_id,
+                status_code=400,
+            )
+        try:
+            RescheduleService().request(
+                principal,
+                academy_id=academy_id,
+                branch_id=form["branch_id"],
+                schedule_id=schedule_id,
+                teacher_id=form["teacher_id"],
+                room_id=form["room_id"],
+                starts_at=form["starts_at"],
+                ends_at=form["ends_at"],
+                timezone_name=form["timezone"],
+                reason=form["reason"],
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(_schedule_error_message(error), "error")
+            return _render_schedules(
+                principal,
+                academy_id,
+                selected_schedule_id=schedule_id,
+                status_code=error.status_code,
+            )
+        flash("Reschedule request masuk ke approval queue.", "success")
+        return redirect(url_for("schedule_detail_page", academy_id=academy_id, schedule_id=schedule_id))
+
+    @app.post("/academies/<uuid:academy_id>/sessions/<uuid:session_id>/attendance")
+    def daily_attendance_submit(academy_id, session_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        context = _daily_operation_context(principal, academy_id, session_id)
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang daily operations.", "error")
+            return _render_daily_operations(principal, academy_id, session_id, status_code=400)
+        try:
+            AttendanceService().save_draft(
+                principal,
+                academy_id=academy_id,
+                branch_id=context["session"].branch_id,
+                session_id=session_id,
+                entries=_attendance_form_entries(context["roster"]),
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(error.message, "error")
+            return _render_daily_operations(
+                principal,
+                academy_id,
+                session_id,
+                status_code=error.status_code,
+            )
+        flash("Attendance draft berhasil disimpan.", "success")
+        return redirect(url_for("daily_operations_page", academy_id=academy_id, session_id=session_id))
+
+    @app.post("/academies/<uuid:academy_id>/sessions/<uuid:session_id>/attendance/finalize")
+    def daily_attendance_finalize_submit(academy_id, session_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        context = _daily_operation_context(principal, academy_id, session_id)
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang daily operations.", "error")
+            return _render_daily_operations(principal, academy_id, session_id, status_code=400)
+        try:
+            AttendanceService().finalize(
+                principal,
+                academy_id=academy_id,
+                branch_id=context["session"].branch_id,
+                session_id=session_id,
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(error.message, "error")
+            return _render_daily_operations(
+                principal,
+                academy_id,
+                session_id,
+                status_code=error.status_code,
+            )
+        flash("Attendance finalized dan sudah aman untuk parent/student.", "success")
+        return redirect(url_for("daily_operations_page", academy_id=academy_id, session_id=session_id))
+
+    @app.post("/academies/<uuid:academy_id>/sessions/<uuid:session_id>/lesson-summary")
+    def daily_lesson_summary_submit(academy_id, session_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        context = _daily_operation_context(principal, academy_id, session_id)
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang daily operations.", "error")
+            return _render_daily_operations(principal, academy_id, session_id, status_code=400)
+        try:
+            LessonSummaryService().save_draft(
+                principal,
+                academy_id=academy_id,
+                branch_id=context["session"].branch_id,
+                session_id=session_id,
+                content=_lesson_summary_form(),
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(error.message, "error")
+            return _render_daily_operations(
+                principal,
+                academy_id,
+                session_id,
+                status_code=error.status_code,
+            )
+        flash("Lesson summary draft berhasil disimpan.", "success")
+        return redirect(url_for("daily_operations_page", academy_id=academy_id, session_id=session_id))
+
+    @app.post("/academies/<uuid:academy_id>/sessions/<uuid:session_id>/lesson-summary/publish")
+    def daily_lesson_summary_publish_submit(academy_id, session_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        context = _daily_operation_context(principal, academy_id, session_id)
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang daily operations.", "error")
+            return _render_daily_operations(principal, academy_id, session_id, status_code=400)
+        try:
+            LessonSummaryService().publish(
+                principal,
+                academy_id=academy_id,
+                branch_id=context["session"].branch_id,
+                session_id=session_id,
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(error.message, "error")
+            return _render_daily_operations(
+                principal,
+                academy_id,
+                session_id,
+                status_code=error.status_code,
+            )
+        flash("Lesson summary published untuk parent/student.", "success")
+        return redirect(url_for("daily_operations_page", academy_id=academy_id, session_id=session_id))
+
+    @app.post("/academies/<uuid:academy_id>/attendances/<uuid:attendance_id>/edit-requests")
+    def attendance_edit_request_submit(academy_id, attendance_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        form = _attendance_edit_request_form()
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang daily operations.", "error")
+            return redirect(url_for("dashboard"))
+        try:
+            request_record = AttendanceService().request_edit(
+                principal,
+                academy_id=academy_id,
+                branch_id=form["branch_id"],
+                attendance_id=attendance_id,
+                proposed_status=form["attendance_status"],
+                proposed_note=form["note"],
+                reason=form["reason"],
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(error.message, "error")
+            attendance = AttendanceRepository().get_scoped(
+                academy_id,
+                form["branch_id"],
+                attendance_id,
+            )
+            if attendance is not None:
+                return _render_daily_operations(
+                    principal,
+                    academy_id,
+                    attendance.session_id,
+                    status_code=error.status_code,
+                )
+            return _render_approvals(principal, academy_id, status_code=error.status_code)
+        flash("Attendance correction request masuk ke approval queue.", "success")
+        return redirect(
+            url_for(
+                "daily_operations_page",
+                academy_id=academy_id,
+                session_id=request_record.attendance.session_id,
+            )
+        )
+
+    @app.post("/academies/<uuid:academy_id>/lesson-summaries/<uuid:summary_id>/edit-requests")
+    def lesson_summary_edit_request_submit(academy_id, summary_id):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        form = _lesson_summary_edit_request_form()
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang daily operations.", "error")
+            return redirect(url_for("dashboard"))
+        try:
+            request_record = LessonSummaryService().request_edit(
+                principal,
+                academy_id=academy_id,
+                branch_id=form["branch_id"],
+                summary_id=summary_id,
+                content=form["content"],
+                reason=form["reason"],
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(error.message, "error")
+            summary = LessonSummaryRepository().get_scoped(
+                academy_id,
+                form["branch_id"],
+                summary_id,
+            )
+            if summary is not None:
+                return _render_daily_operations(
+                    principal,
+                    academy_id,
+                    summary.session_id,
+                    status_code=error.status_code,
+                )
+            return _render_approvals(principal, academy_id, status_code=error.status_code)
+        flash("Lesson summary correction request masuk ke approval queue.", "success")
+        return redirect(
+            url_for(
+                "daily_operations_page",
+                academy_id=academy_id,
+                session_id=request_record.lesson_summary.session_id,
+            )
+        )
+
+    @app.post("/academies/<uuid:academy_id>/approvals/<request_type>/<uuid:request_id>/<decision>")
+    def approval_decision_submit(academy_id, request_type, request_id, decision):
+        principal = _require_web_auth()
+        if principal is None:
+            return redirect(url_for("login_page"))
+        if decision not in {"approve", "reject"}:
+            return render_template("error.html", user=principal.user, status_code=404), 404
+        form = _approval_decision_form()
+        if not _validate_csrf():
+            flash("Sesi form tidak valid. Muat ulang approval queue.", "error")
+            return _render_approvals(principal, academy_id, status_code=400)
+        try:
+            _decide_approval_request(
+                principal,
+                academy_id=academy_id,
+                branch_id=form["branch_id"],
+                request_type=request_type,
+                request_id=request_id,
+                approve=decision == "approve",
+                reason=form["reason"],
+            )
+        except AppError as error:
+            db.session.rollback()
+            flash(error.message, "error")
+            return _render_approvals(principal, academy_id, status_code=error.status_code)
+        flash("Approval decision berhasil disimpan.", "success")
+        return redirect(url_for("approval_workflow_page", academy_id=academy_id))
+
     @app.errorhandler(404)
     def not_found(_error):
         if request.path.startswith("/api/"):
@@ -1698,6 +2035,75 @@ def _schedule_form() -> dict[str, object]:
     }
 
 
+def _reschedule_request_form() -> dict[str, object]:
+    return {
+        "branch_id": _required_uuid(request.form.get("branch_id", "").strip()),
+        "teacher_id": _required_uuid(request.form.get("teacher_id", "").strip()),
+        "room_id": _required_uuid(request.form.get("room_id", "").strip()),
+        "starts_at": _required_datetime_local(
+            request.form.get("starts_at", "").strip(),
+            "Proposed schedule start",
+        ),
+        "ends_at": _required_datetime_local(
+            request.form.get("ends_at", "").strip(),
+            "Proposed schedule end",
+        ),
+        "timezone": request.form.get("timezone", "Asia/Jakarta").strip() or "Asia/Jakarta",
+        "reason": _required_form_text("reason", "Reason"),
+    }
+
+
+def _lesson_summary_form() -> dict[str, str | None]:
+    return {
+        "lesson_topic": request.form.get("lesson_topic", "").strip(),
+        "class_summary": request.form.get("class_summary", "").strip(),
+        "teacher_notes": request.form.get("teacher_notes", "").strip() or None,
+        "homework": request.form.get("homework", "").strip() or None,
+        "student_attention_notes": (
+            request.form.get("student_attention_notes", "").strip() or None
+        ),
+    }
+
+
+def _attendance_edit_request_form() -> dict[str, object]:
+    return {
+        "branch_id": _required_uuid(request.form.get("branch_id", "").strip()),
+        "attendance_status": request.form.get("attendance_status", "").strip(),
+        "note": request.form.get("note", "").strip() or None,
+        "reason": _required_form_text("reason", "Reason"),
+    }
+
+
+def _lesson_summary_edit_request_form() -> dict[str, object]:
+    return {
+        "branch_id": _required_uuid(request.form.get("branch_id", "").strip()),
+        "content": _lesson_summary_form(),
+        "reason": _required_form_text("reason", "Reason"),
+    }
+
+
+def _approval_decision_form() -> dict[str, object]:
+    return {
+        "branch_id": _required_uuid(request.form.get("branch_id", "").strip()),
+        "reason": _required_form_text("reason", "Decision reason"),
+    }
+
+
+def _attendance_form_entries(roster: list[Student]) -> list[dict[str, object]]:
+    entries = []
+    for student in roster:
+        status = request.form.get(f"attendance_status_{student.id}", "").strip()
+        note = request.form.get(f"attendance_note_{student.id}", "").strip()
+        entries.append(
+            {
+                "student_id": student.id,
+                "attendance_status": status,
+                "note": note or None,
+            }
+        )
+    return entries
+
+
 def _teacher_user_id_from_form(principal, academy_id, form: dict[str, object]) -> UUID | None:
     existing_user_id = form["user_id"]
     if existing_user_id:
@@ -1716,6 +2122,13 @@ def _teacher_user_id_from_form(principal, academy_id, form: dict[str, object]) -
         full_name=form["full_name"],
     )
     return user.id
+
+
+def _required_form_text(field: str, label: str) -> str:
+    value = request.form.get(field, "").strip()
+    if not value:
+        raise AppError(f"{label} is required.", code="validation_error", status_code=422)
+    return value
 
 
 def _student_user_id_from_form(principal, academy_id, form: dict[str, object]) -> UUID | None:
@@ -2362,6 +2775,17 @@ def _render_schedules(
         ]
         for branch in branches
     }
+    selected_reschedule_requests = []
+    if selected_schedule is not None:
+        try:
+            selected_reschedule_requests = RescheduleService().list_for_schedule(
+                principal,
+                academy_id=academy.id,
+                branch_id=selected_schedule.branch_id,
+                schedule_id=selected_schedule.id,
+            )
+        except AppError:
+            selected_reschedule_requests = []
     default_branch = manageable_branches[0] if manageable_branches else (branches[0] if branches else None)
     default_classes = classes_by_branch.get(default_branch.id, []) if default_branch else []
     default_rooms = rooms_by_branch.get(default_branch.id, []) if default_branch else []
@@ -2391,13 +2815,453 @@ def _render_schedules(
             teachers_by_branch=teachers_by_branch,
             schedules=schedules,
             selected_schedule=selected_schedule,
+            selected_reschedule_requests=selected_reschedule_requests,
             schedule_form=schedule_form or default_schedule_form,
             can_access_tenants=_is_platform_owner(principal),
             can_create_schedule=lambda branch_id: _can_create_schedule(principal, academy.id, branch_id),
+            can_request_reschedule=lambda schedule: _can_request_reschedule(principal, schedule),
             format_datetime=_format_schedule_datetime,
             datetime_local_value=_datetime_local_value,
         ),
         status_code,
+    )
+
+
+def _render_daily_operations(
+    principal,
+    academy_id,
+    session_id,
+    *,
+    status_code: int = 200,
+):
+    try:
+        context = _daily_operation_context(principal, academy_id, session_id)
+    except AppError as error:
+        return render_template(
+            "error.html",
+            user=principal.user,
+            status_code=error.status_code,
+        ), error.status_code
+    return (
+        render_template(
+            "daily_operations.html",
+            user=principal.user,
+            academy=context["academy"],
+            session=context["session"],
+            schedule=context["schedule"],
+            roster=context["roster"],
+            attendance_by_student=context["attendance_by_student"],
+            summary=context["summary"],
+            summary_form=context["summary_form"],
+            can_edit_attendance=context["can_edit_attendance"],
+            can_finalize_attendance=context["can_finalize_attendance"],
+            can_edit_summary=context["can_edit_summary"],
+            can_publish_summary=context["can_publish_summary"],
+            format_datetime=_format_schedule_datetime,
+        ),
+        status_code,
+    )
+
+
+def _render_approvals(principal, academy_id, *, status_code: int = 200):
+    try:
+        academy = AcademyService().get_visible(principal, academy_id)
+        branches = BranchService().list_visible(principal, academy.id)
+    except AppError as error:
+        return render_template(
+            "error.html",
+            user=principal.user,
+            status_code=error.status_code,
+        ), error.status_code
+    queues = _approval_queues(principal, academy.id, branches)
+    if not any(
+        queues[key]["pending"] or queues[key]["decided"]
+        for key in ("reschedule", "attendance", "lesson_summary")
+    ) and not any(_can_approve_any(principal, academy.id, branch.id) for branch in branches):
+        return render_template(
+            "error.html",
+            user=principal.user,
+            status_code=403,
+        ), 403
+    return (
+        render_template(
+            "approvals.html",
+            user=principal.user,
+            academy=academy,
+            branches=branches,
+            queues=queues,
+            format_datetime=_format_schedule_datetime,
+            can_access_tenants=_is_platform_owner(principal),
+        ),
+        status_code,
+    )
+
+
+def _render_notifications(principal, *, unread_only: bool, status_code: int = 200):
+    data = NotificationService().list_for_principal(
+        principal,
+        limit=50,
+        unread_only=unread_only,
+    )
+    items = data["items"]
+    grouped = {
+        "high": [item for item in items if item["priority"] == "high"],
+        "medium": [item for item in items if item["priority"] == "medium"],
+        "low": [item for item in items if item["priority"] == "low"],
+    }
+    return (
+        render_template(
+            "notifications.html",
+            user=principal.user,
+            items=items,
+            grouped=grouped,
+            unread_count=data["unread_count"],
+            unread_only=unread_only,
+            format_notification_time=_format_notification_time,
+        ),
+        status_code,
+    )
+
+
+def _render_branch_reports(principal, academy_id, *, status_code: int = 200):
+    try:
+        academy = AcademyService().get_visible(principal, academy_id)
+        branches = [
+            branch
+            for branch in BranchService().list_visible(principal, academy.id)
+            if _can_view_reports(principal, academy.id, branch.id)
+        ]
+        if not branches:
+            raise AppError("Role aktif Anda tidak memiliki akses.", code="forbidden", status_code=403)
+        selected_branch = _selected_report_branch(branches)
+        start_date, end_date = _report_period_filters()
+        can_view_academy_rollup = _can_view_academy_reports(principal, academy.id)
+        academy_report = (
+            AnalyticsService().academy_overview(
+                principal,
+                academy.id,
+                start_date=start_date,
+                end_date=end_date,
+            )
+            if can_view_academy_rollup
+            else None
+        )
+        kpi = AnalyticsService().branch_kpi(
+            principal,
+            selected_branch.id,
+            start_date=start_date,
+            end_date=end_date,
+        )
+    except AppError as error:
+        return render_template(
+            "error.html",
+            user=principal.user,
+            status_code=error.status_code,
+        ), error.status_code
+    return (
+        render_template(
+            "reports.html",
+            user=principal.user,
+            academy=academy,
+            branches=branches,
+            selected_branch=selected_branch,
+            academy_report=academy_report,
+            can_view_academy_rollup=can_view_academy_rollup,
+            kpi=kpi,
+            start_date=start_date.isoformat() if start_date else "",
+            end_date=end_date.isoformat() if end_date else "",
+            percent=_format_percent,
+            decimal=_format_decimal,
+            can_access_tenants=_is_platform_owner(principal),
+        ),
+        status_code,
+    )
+
+
+def _selected_report_branch(branches: list[Branch]) -> Branch:
+    selected = request.args.get("branch_id", "").strip()
+    if selected:
+        try:
+            selected_id = UUID(selected)
+        except ValueError as error:
+            raise AppError("Selected branch is invalid.", code="validation_error", status_code=422) from error
+        for branch in branches:
+            if branch.id == selected_id:
+                return branch
+        raise AppError("Selected branch is outside your report scope.", code="forbidden", status_code=403)
+    return branches[0]
+
+
+def _report_period_filters():
+    return (
+        _optional_query_date("from", "From date"),
+        _optional_query_date("to", "To date"),
+    )
+
+
+def _optional_query_date(field: str, label: str):
+    value = request.args.get(field, "").strip()
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError as error:
+        raise AppError(f"{label} must use YYYY-MM-DD format.", code="validation_error", status_code=422) from error
+
+
+def _notification_summary() -> dict[str, int]:
+    principal = _current_principal()
+    if principal is None:
+        return {"unread_count": 0}
+    return {
+        "unread_count": NotificationService().repository.unread_count(principal.user.id),
+    }
+
+
+def _approval_queues(principal, academy_id, branches: list[Branch]) -> dict[str, dict[str, list]]:
+    branch_ids = {branch.id for branch in branches}
+    if not branch_ids:
+        empty = {"pending": [], "decided": []}
+        return {
+            "reschedule": empty,
+            "attendance": empty,
+            "lesson_summary": empty,
+        }
+    reschedule_requests = _visible_reschedule_requests(principal, academy_id, branch_ids)
+    attendance_requests = _visible_attendance_edit_requests(principal, academy_id, branch_ids)
+    lesson_requests = _visible_lesson_summary_edit_requests(principal, academy_id, branch_ids)
+    return {
+        "reschedule": _split_requests(reschedule_requests),
+        "attendance": _split_requests(attendance_requests),
+        "lesson_summary": _split_requests(lesson_requests),
+    }
+
+
+def _split_requests(items: list) -> dict[str, list]:
+    return {
+        "pending": [item for item in items if item.status == "pending"],
+        "decided": [item for item in items if item.status != "pending"][:5],
+    }
+
+
+def _visible_reschedule_requests(principal, academy_id, branch_ids: set[UUID]) -> list[ScheduleChangeRequest]:
+    rows = list(
+        db.session.scalars(
+            db.select(ScheduleChangeRequest)
+            .where(
+                ScheduleChangeRequest.academy_id == academy_id,
+                ScheduleChangeRequest.branch_id.in_(branch_ids),
+            )
+            .order_by(ScheduleChangeRequest.requested_at.desc(), ScheduleChangeRequest.id)
+        )
+    )
+    return [
+        item
+        for item in rows
+        if AuthorizationService.is_allowed(
+            principal,
+            Permission.SCHEDULE_APPROVE_RESCHEDULE,
+            AuthorizationTarget(
+                academy_id=item.academy_id,
+                branch_id=item.branch_id,
+                class_id=item.original_class_id,
+            ),
+        )
+    ]
+
+
+def _visible_attendance_edit_requests(principal, academy_id, branch_ids: set[UUID]) -> list[AttendanceEditRequest]:
+    rows = list(
+        db.session.scalars(
+            db.select(AttendanceEditRequest)
+            .where(
+                AttendanceEditRequest.academy_id == academy_id,
+                AttendanceEditRequest.branch_id.in_(branch_ids),
+            )
+            .order_by(AttendanceEditRequest.requested_at.desc(), AttendanceEditRequest.id)
+        )
+    )
+    return [
+        item
+        for item in rows
+        if AuthorizationService.is_allowed(
+            principal,
+            Permission.ATTENDANCE_APPROVE_EDIT,
+            AuthorizationTarget(
+                academy_id=item.academy_id,
+                branch_id=item.branch_id,
+                class_id=item.attendance.class_id,
+                student_id=item.attendance.student_id,
+            ),
+        )
+    ]
+
+
+def _visible_lesson_summary_edit_requests(principal, academy_id, branch_ids: set[UUID]) -> list[LessonSummaryEditRequest]:
+    rows = list(
+        db.session.scalars(
+            db.select(LessonSummaryEditRequest)
+            .where(
+                LessonSummaryEditRequest.academy_id == academy_id,
+                LessonSummaryEditRequest.branch_id.in_(branch_ids),
+            )
+            .order_by(LessonSummaryEditRequest.requested_at.desc(), LessonSummaryEditRequest.id)
+        )
+    )
+    return [
+        item
+        for item in rows
+        if AuthorizationService.is_allowed(
+            principal,
+            Permission.LESSON_SUMMARY_APPROVE_EDIT,
+            AuthorizationTarget(
+                academy_id=item.academy_id,
+                branch_id=item.branch_id,
+                class_id=item.lesson_summary.class_id,
+            ),
+        )
+    ]
+
+
+def _can_approve_any(principal, academy_id, branch_id) -> bool:
+    target = AuthorizationTarget(academy_id=academy_id, branch_id=branch_id)
+    return any(
+        AuthorizationService.is_allowed(principal, permission, target)
+        for permission in (
+            Permission.SCHEDULE_APPROVE_RESCHEDULE,
+            Permission.ATTENDANCE_APPROVE_EDIT,
+            Permission.LESSON_SUMMARY_APPROVE_EDIT,
+        )
+    )
+
+
+def _decide_approval_request(
+    principal,
+    *,
+    academy_id,
+    branch_id,
+    request_type: str,
+    request_id,
+    approve: bool,
+    reason: str,
+) -> None:
+    if request_type == "reschedule":
+        if approve:
+            RescheduleService().approve(
+                principal,
+                academy_id=academy_id,
+                branch_id=branch_id,
+                request_id=request_id,
+                decision_reason=reason,
+            )
+        else:
+            RescheduleService().reject(
+                principal,
+                academy_id=academy_id,
+                branch_id=branch_id,
+                request_id=request_id,
+                decision_reason=reason,
+            )
+        return
+    if request_type == "attendance":
+        AttendanceService().decide_edit(
+            principal,
+            academy_id=academy_id,
+            branch_id=branch_id,
+            request_id=request_id,
+            approve=approve,
+            reason=reason,
+        )
+        return
+    if request_type == "lesson-summary":
+        LessonSummaryService().decide_edit(
+            principal,
+            academy_id=academy_id,
+            branch_id=branch_id,
+            request_id=request_id,
+            approve=approve,
+            reason=reason,
+        )
+        return
+    raise AppError("Unknown approval request type.", code="validation_error", status_code=422)
+
+
+def _daily_operation_context(principal, academy_id, session_id) -> dict[str, object]:
+    academy = AcademyService().get_visible(principal, academy_id)
+    session_record = db.session.scalar(
+        db.select(ClassSession).where(
+            ClassSession.academy_id == academy.id,
+            ClassSession.id == session_id,
+        )
+    )
+    if session_record is None:
+        raise AppError("Class session was not found.", code="not_found", status_code=404)
+    schedule = session_record.schedule
+    target = AuthorizationTarget(
+        academy_id=academy.id,
+        branch_id=session_record.branch_id,
+        class_id=schedule.class_id,
+    )
+    AuthorizationService.require(principal, Permission.ATTENDANCE_VIEW, target)
+    AuthorizationService.require(principal, Permission.LESSON_SUMMARY_VIEW, target)
+    roster = _active_session_roster(academy.id, session_record.branch_id, schedule.class_id)
+    attendance_by_student = {
+        item.student_id: item
+        for item in AttendanceRepository().list_for_session(
+            academy.id,
+            session_record.branch_id,
+            session_record.id,
+        )
+    }
+    summary = LessonSummaryRepository().get_for_session(session_record.id)
+    return {
+        "academy": academy,
+        "session": session_record,
+        "schedule": schedule,
+        "roster": roster,
+        "attendance_by_student": attendance_by_student,
+        "summary": summary,
+        "summary_form": LessonSummaryService.content(summary) if summary else {
+            "lesson_topic": "",
+            "class_summary": "",
+            "teacher_notes": "",
+            "homework": "",
+            "student_attention_notes": "",
+        },
+        "can_edit_attendance": session_record.attendance_status != "finalized"
+        and (
+            AuthorizationService.is_allowed(principal, Permission.ATTENDANCE_CREATE, target)
+            or AuthorizationService.is_allowed(principal, Permission.ATTENDANCE_EDIT, target)
+        ),
+        "can_finalize_attendance": session_record.attendance_status != "finalized"
+        and AuthorizationService.is_allowed(principal, Permission.ATTENDANCE_FINALIZE, target),
+        "can_edit_summary": (summary is None or summary.status != "published")
+        and (
+            AuthorizationService.is_allowed(principal, Permission.LESSON_SUMMARY_CREATE, target)
+            or AuthorizationService.is_allowed(principal, Permission.LESSON_SUMMARY_EDIT, target)
+        ),
+        "can_publish_summary": summary is not None
+        and summary.status != "published"
+        and AuthorizationService.is_allowed(principal, Permission.LESSON_SUMMARY_PUBLISH, target),
+    }
+
+
+def _active_session_roster(academy_id, branch_id, class_id) -> list[Student]:
+    return list(
+        db.session.scalars(
+            db.select(Student)
+            .join(ClassStudent, ClassStudent.student_id == Student.id)
+            .where(
+                Student.academy_id == academy_id,
+                Student.home_branch_id == branch_id,
+                Student.status != "archived",
+                ClassStudent.academy_id == academy_id,
+                ClassStudent.branch_id == branch_id,
+                ClassStudent.class_id == class_id,
+                ClassStudent.enrollment_status == EnrollmentStatus.ACTIVE,
+            )
+            .order_by(Student.full_name, Student.id)
+        )
     )
 
 
@@ -2411,6 +3275,23 @@ def _schedule_error_message(error: AppError) -> str:
 
 def _format_schedule_datetime(value: datetime | None) -> str:
     return value.strftime("%d %b %Y %H:%M") if value else "-"
+
+
+def _format_notification_time(value: str | None) -> str:
+    if not value:
+        return "-"
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00")).strftime("%d %b %Y %H:%M")
+    except ValueError:
+        return value
+
+
+def _format_percent(value) -> str:
+    return f"{float(value or 0) * 100:.0f}%"
+
+
+def _format_decimal(value) -> str:
+    return f"{float(value or 0):.1f}"
 
 
 def _internal_roles() -> list[Role]:
@@ -2650,6 +3531,34 @@ def _can_create_schedule(principal, academy_id, branch_id) -> bool:
     )
 
 
+def _can_request_reschedule(principal, schedule) -> bool:
+    return AuthorizationService.is_allowed(
+        principal,
+        Permission.SCHEDULE_REQUEST_RESCHEDULE,
+        AuthorizationTarget(
+            academy_id=schedule.academy_id,
+            branch_id=schedule.branch_id,
+            class_id=schedule.class_id,
+        ),
+    )
+
+
+def _can_view_reports(principal, academy_id, branch_id) -> bool:
+    return AuthorizationService.is_allowed(
+        principal,
+        Permission.REPORT_VIEW,
+        AuthorizationTarget(academy_id=academy_id, branch_id=branch_id),
+    )
+
+
+def _can_view_academy_reports(principal, academy_id) -> bool:
+    return AuthorizationService.is_allowed(
+        principal,
+        Permission.REPORT_VIEW,
+        AuthorizationTarget(academy_id=academy_id),
+    )
+
+
 def _can_edit_branch(principal, branch: Branch) -> bool:
     return AuthorizationService.is_allowed(
         principal,
@@ -2701,6 +3610,8 @@ def _dashboard_context(principal, role: Role) -> DashboardContext:
         state_title=ROLE_UI[role]["state_title"],
         state_items=ROLE_UI[role]["state_items"],
         schedule_items=_dashboard_schedule_items(principal, role, academy_id, branch_id),
+        operational_items=_dashboard_operational_items(principal, role, academy_id, branch_id),
+        report_href=_dashboard_report_href(principal, academy_id, branch_id),
     )
 
 
@@ -2782,4 +3693,169 @@ def _schedule_dashboard_item(schedule) -> dict[str, str]:
         "when": _format_schedule_datetime(schedule.starts_at),
         "title": academic_class,
         "body": f"{teacher} / {room} / {schedule.status}",
+    }
+
+
+def _dashboard_operational_items(principal, role: Role, academy_id, branch_id) -> list[dict[str, str]]:
+    if academy_id is None:
+        return []
+    starts_at = datetime.combine(date.today(), time.min) - timedelta(days=1)
+    ends_at = datetime.combine(date.today(), time.max) + timedelta(days=14)
+    if role in {Role.BRANCH_ADMIN, Role.BRANCH_MANAGER} and branch_id is not None:
+        schedules = ScheduleRepository().list_for_branches_window(
+            academy_id,
+            {branch_id},
+            starts_at,
+            ends_at,
+        )
+        return [_operational_dashboard_item(schedule, show_link=role == Role.BRANCH_ADMIN) for schedule in schedules[:4]]
+    if role == Role.TEACHER:
+        teacher = TeacherService().repository.get_by_user(academy_id, principal.user.id)
+        if teacher is None:
+            return []
+        schedules = ScheduleRepository().list_for_teacher_window(
+            academy_id,
+            teacher.id,
+            starts_at,
+            ends_at,
+        )
+        return [_operational_dashboard_item(schedule, show_link=True) for schedule in schedules[:4]]
+    if role == Role.STUDENT:
+        student = db.session.scalar(
+            db.select(Student).where(
+                Student.academy_id == academy_id,
+                Student.user_id == principal.user.id,
+                Student.status != "archived",
+            )
+        )
+        if student is None:
+            return []
+        return _student_published_operation_items(academy_id, student.id)
+    if role == Role.PARENT:
+        parent = ParentRepository().get_by_user(academy_id, principal.user.id)
+        if parent is None:
+            return []
+        items = []
+        service = ParentExperienceService()
+        for link in ParentStudentRepository().list_active_for_parent(academy_id, parent.id):
+            for item in service.attendance_history(principal, academy_id, link.student_id, 2):
+                items.append(
+                    {
+                        "when": item["finalized_at"] or item["starts_at"],
+                        "title": f"{link.student.full_name}: attendance {item['attendance_status']}",
+                        "body": f"{item['class']['name']} finalized for parent view.",
+                        "status": "Finalized",
+                        "href": "",
+                    }
+                )
+            for item in service.published_summaries(principal, academy_id, link.student_id, 2):
+                items.append(
+                    {
+                        "when": item["published_at"] or item["session_starts_at"],
+                        "title": f"{link.student.full_name}: {item['lesson_topic']}",
+                        "body": item["class_summary"],
+                        "status": "Published",
+                        "href": "",
+                    }
+                )
+        return items[:4]
+    return []
+
+
+def _dashboard_report_href(principal, academy_id, branch_id) -> str:
+    if academy_id is None:
+        return ""
+    try:
+        branches = BranchService().list_visible(principal, academy_id)
+    except AppError:
+        return ""
+    reportable = [
+        branch
+        for branch in branches
+        if _can_view_reports(principal, academy_id, branch.id)
+    ]
+    if not reportable:
+        return ""
+    selected_branch_id = branch_id if any(branch.id == branch_id for branch in reportable) else reportable[0].id
+    return url_for(
+        "branch_reports_page",
+        academy_id=academy_id,
+        branch_id=selected_branch_id,
+    )
+
+
+def _student_published_operation_items(academy_id, student_id) -> list[dict[str, str]]:
+    repository = ParentStudentRepository()
+    items = []
+    for attendance, schedule, academic_class, _branch in repository.attendance_history(
+        academy_id,
+        student_id,
+        2,
+    ):
+        items.append(
+            {
+                "when": _format_schedule_datetime(
+                    attendance.session.attendance_finalized_at or schedule.starts_at
+                ),
+                "title": f"Attendance {attendance.attendance_status}",
+                "body": f"{academic_class.class_name} attendance has been finalized.",
+                "status": "Finalized",
+                "href": "",
+            }
+        )
+    for summary, schedule, academic_class, _branch in repository.published_summaries(
+        academy_id,
+        student_id,
+        2,
+    ):
+        items.append(
+            {
+                "when": _format_schedule_datetime(summary.published_at or schedule.starts_at),
+                "title": summary.lesson_topic,
+                "body": summary.class_summary,
+                "status": "Published",
+                "href": "",
+            }
+        )
+    return items[:4]
+
+
+def _operational_dashboard_item(schedule, *, show_link: bool) -> dict[str, str]:
+    session_record = schedule.session
+    if session_record is None:
+        status = "Waiting"
+        body = "Session record has not been prepared yet."
+        href = ""
+    else:
+        summary_status = (
+            session_record.lesson_summary.status
+            if session_record.lesson_summary
+            else "missing"
+        )
+        if session_record.attendance_status == "finalized" and summary_status == "published":
+            status = "Complete"
+        elif session_record.attendance_status != "finalized":
+            status = "Needs attendance"
+        else:
+            status = "Needs summary"
+        body = (
+            f"Attendance {session_record.attendance_status}; "
+            f"summary {summary_status}."
+        )
+        href = (
+            url_for(
+                "daily_operations_page",
+                academy_id=schedule.academy_id,
+                session_id=session_record.id,
+            )
+            if show_link
+            else ""
+        )
+    academic_class = schedule.academic_class.class_name if schedule.academic_class else "Class"
+    return {
+        "when": _format_schedule_datetime(schedule.starts_at),
+        "title": academic_class,
+        "body": body,
+        "status": status,
+        "href": href,
     }

@@ -10,10 +10,18 @@
     <header class="topbar">
       <a class="brand" href="{{ url_for('dashboard') }}">BimbelSaaS</a>
       {% if user %}
-        <form method="post" action="{{ url_for('logout') }}">
-          <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
-          <button class="ghost-button" type="submit">Logout</button>
-        </form>
+        <div class="topbar-actions">
+          <a class="topbar-link" href="{{ url_for('notifications_page') }}">
+            Notifications
+            {% if notification_summary.unread_count %}
+              <span>{{ notification_summary.unread_count }}</span>
+            {% endif %}
+          </a>
+          <form method="post" action="{{ url_for('logout') }}">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token() }}">
+            <button class="ghost-button" type="submit">Logout</button>
+          </form>
+        </div>
       {% endif %}
     </header>
     <main class="page-shell">

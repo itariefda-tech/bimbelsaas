@@ -670,7 +670,7 @@ def test_reschedule_approval_preserves_original_and_creates_replacement(
     assert self_approval.status_code == 403
     assert (
         self_approval.json["error"]["code"]
-        == "reschedule_approval_authority_denied"
+        == "reschedule_self_approval_denied"
     )
     assert approved.status_code == 200
     assert approved.json["data"]["status"] == "approved"
@@ -693,7 +693,7 @@ def test_approval_revalidates_conflicts_created_after_request(
     academy_id,
     branch_id,
 ):
-    headers = _director(client, create_identity, academy_id)
+    headers = _admin(client, create_identity, academy_id, branch_id)
     original_class = _create_class(client, headers, academy_id, branch_id, "RV1")
     conflict_class = _create_class(client, headers, academy_id, branch_id, "RV2")
     original_room = _create_room(client, headers, academy_id, branch_id, "RV1")
@@ -739,7 +739,7 @@ def test_approval_revalidates_conflicts_created_after_request(
             f"/api/v1/branches/{branch_id}/reschedule-requests/"
             f"{requested.json['data']['id']}/approve"
         ),
-        headers=headers,
+        headers=_manager(client, create_identity, academy_id, branch_id),
         json={"academy_id": str(academy_id), "reason": "Approved after review"},
     )
 

@@ -10,7 +10,9 @@ const demoEmail = process.env.UI_QUALITY_EMAIL || "owner@example.com";
 const demoPassword = process.env.UI_QUALITY_PASSWORD || "password123";
 const teacherEmail = process.env.UI_QUALITY_TEACHER_EMAIL || "teacher@example.com";
 const parentEmail = process.env.UI_QUALITY_PARENT_EMAIL || "parent@example.com";
+const branchManagerEmail = process.env.UI_QUALITY_BRANCH_MANAGER_EMAIL || "manager@example.com";
 const branchAdminEmail = process.env.UI_QUALITY_BRANCH_ADMIN_EMAIL || "admin@example.com";
+const academyDirectorEmail = process.env.UI_QUALITY_ACADEMY_DIRECTOR_EMAIL || "director@example.com";
 const qaChecks = [];
 
 const serverEnv = {
@@ -98,6 +100,30 @@ try {
       isMobile: false,
     });
     await runBranchAdminViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+    });
+    await runBranchManagerViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+    });
+    await runBranchManagerViewport(browser, {
+      name: "mobile",
+      width: 390,
+      height: 844,
+      isMobile: true,
+    });
+    await runAcademyDirectorViewport(browser, {
+      name: "desktop",
+      width: 1440,
+      height: 960,
+      isMobile: false,
+    });
+    await runAcademyDirectorViewport(browser, {
       name: "mobile",
       width: 390,
       height: 844,
@@ -574,6 +600,15 @@ async function runScheduleCreationViewport(browser, viewport) {
       await expectContent(page, "QA Schedule Teacher", "created schedule teacher visible");
       await expectContent(page, "QA Schedule Room", "created schedule room visible");
       await expectContent(page, "scheduled", "created schedule status visible");
+      await page.getByText("Open daily operations").click();
+      await page.waitForLoadState("networkidle");
+      await expectText(page, "Daily operations", "daily operations title");
+      await expectText(page, "Attendance UI", "daily operations attendance form");
+      await expectText(page, "Lesson summary", "daily operations lesson summary form");
+      await expectNoHorizontalOverflow(page, "daily operations overflow");
+      await expectNoImportantTextOverflow(page, "daily operations important text overflow");
+      await expectNamedButtons(page, "daily operations buttons");
+      await capture(page, `${viewport.name}-daily-operations.png`);
     }
 
     await expectNoHorizontalOverflow(page, `${viewport.name} schedule creation overflow`);
@@ -815,6 +850,72 @@ async function runBranchAdminViewport(browser, viewport) {
   }
 }
 
+async function runBranchManagerViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    await login(page, branchManagerEmail);
+    await expectText(page, "Branch Manager Dashboard", `${viewport.name} branch manager dashboard title`);
+    await expectText(page, "Branch operational control", `${viewport.name} branch manager role focus`);
+    await expectText(page, "Approval", `${viewport.name} branch manager approval workflow copy`);
+    await expectNoHorizontalOverflow(page, `${viewport.name} branch manager dashboard overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} branch manager important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} branch manager dashboard buttons`);
+    await capture(page, `${viewport.name}-branch-manager-dashboard.png`);
+
+    await page.getByText("Open reports").click();
+    await page.waitForLoadState("networkidle");
+    await expectText(page, "Reporting and oversight", `${viewport.name} branch report title`);
+    await expectText(page, "Attendance consistency", `${viewport.name} branch report attendance`);
+    await expectText(page, "Schedule stability", `${viewport.name} branch report stability`);
+    await expectText(page, "Teacher workload", `${viewport.name} branch report workload`);
+    await expectText(page, "Parent engagement", `${viewport.name} branch report parent engagement`);
+    await expectNoHorizontalOverflow(page, `${viewport.name} branch report overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} branch report important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} branch report buttons`);
+    await capture(page, `${viewport.name}-branch-report.png`);
+  } finally {
+    await context.close();
+  }
+}
+
+async function runAcademyDirectorViewport(browser, viewport) {
+  const context = await browser.newContext({
+    viewport: { width: viewport.width, height: viewport.height },
+    isMobile: viewport.isMobile,
+  });
+  const page = await context.newPage();
+  try {
+    await login(page, academyDirectorEmail);
+    await expectText(page, "Academy Director Dashboard", `${viewport.name} academy director dashboard title`);
+    await expectText(page, "Executive academy monitoring", `${viewport.name} academy director role focus`);
+    await expectText(page, "Open reports", `${viewport.name} academy director reports action`);
+    await expectNoHorizontalOverflow(page, `${viewport.name} academy director dashboard overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} academy director dashboard important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} academy director dashboard buttons`);
+    await capture(page, `${viewport.name}-academy-director-dashboard.png`);
+
+    await page.getByText("Open reports").click();
+    await page.waitForLoadState("networkidle");
+    await expectText(page, "Reporting and oversight", `${viewport.name} academy director report title`);
+    await expectText(page, "Academy-wide branch rollup", `${viewport.name} academy director rollup`);
+    await expectText(page, "Branch comparison table", `${viewport.name} academy director branch comparison`);
+    await expectText(page, "Attendance consistency", `${viewport.name} academy director attendance`);
+    await expectText(page, "Schedule stability", `${viewport.name} academy director stability`);
+    await expectText(page, "Teacher workload", `${viewport.name} academy director workload`);
+    await expectText(page, "Parent engagement", `${viewport.name} academy director parent engagement`);
+    await expectNoHorizontalOverflow(page, `${viewport.name} academy director report overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} academy director report important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} academy director report buttons`);
+    await capture(page, `${viewport.name}-academy-director-report.png`);
+  } finally {
+    await context.close();
+  }
+}
+
 async function runParentViewport(browser, viewport) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
@@ -880,6 +981,16 @@ async function runViewport(browser, viewport) {
     await expectNoImportantTextOverflow(page, `${viewport.name} dashboard important text overflow`);
     await expectNamedButtons(page, `${viewport.name} dashboard buttons`);
     await capture(page, `${viewport.name}-dashboard.png`);
+
+    await page.getByText("Notifications").click();
+    await page.waitForLoadState("networkidle");
+    await expectText(page, "Notification center", `${viewport.name} notification center title`);
+    await expectText(page, "Operational inbox", `${viewport.name} notification center inbox`);
+    await expectText(page, "Unread and priority groups", `${viewport.name} notification center state`);
+    await expectNoHorizontalOverflow(page, `${viewport.name} notification center overflow`);
+    await expectNoImportantTextOverflow(page, `${viewport.name} notification center important text overflow`);
+    await expectNamedButtons(page, `${viewport.name} notification center buttons`);
+    await capture(page, `${viewport.name}-notifications.png`);
   } finally {
     await context.close();
   }
@@ -969,6 +1080,9 @@ async function expectNoImportantTextOverflow(page, label) {
       ".branch-item",
       ".branch-summary",
       ".team-item",
+      ".attendance-row",
+      ".approval-item",
+      ".notification-item",
       ".team-scope",
       ".tenant-actions",
       ".status-notice",

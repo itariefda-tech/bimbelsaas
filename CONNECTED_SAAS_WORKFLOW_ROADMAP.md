@@ -439,7 +439,7 @@ Implementation notes:
 
 ## Phase CW10 - Daily Operations
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -469,13 +469,23 @@ Deliverables:
 
 Acceptance criteria:
 
-- Parent only sees finalized/published information.
-- Teacher cannot edit locked records without request flow.
-- Student view stays simple and learning-focused.
+- [x] Parent only sees finalized/published information.
+- [x] Teacher cannot edit locked records without request flow.
+- [x] Student view stays simple and learning-focused.
+
+Implementation notes:
+
+- `/academies/<academy_id>/sessions/<session_id>/daily-operations` now provides the connected daily operations page from a created schedule session.
+- Teachers and Branch Admins can save attendance drafts, finalize attendance, save lesson summary drafts, and publish lesson summaries through the existing attendance and lesson summary services.
+- Locked finalized attendance and published lesson summaries expose correction request forms instead of direct mutation.
+- Parent and Student dashboards only show finalized attendance and published summaries; draft/private operational data stays internal.
+- Branch Admin, Branch Manager, and Teacher dashboards now show daily operation completion state for upcoming sessions.
+- `backend/tests/test_web_security.py` covers attendance save/finalize, summary draft/publish, locked correction entry points, and parent/student public visibility.
+- `npm run ui:quality` captures desktop/mobile daily operations screenshots through the schedule flow.
 
 ## Phase CW11 - Approval Workflow
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -505,14 +515,24 @@ Deliverables:
 
 Acceptance criteria:
 
-- Self-approval is blocked.
-- Decision reason is required.
-- Stale approval is blocked.
-- Branch Manager dashboard has desktop/mobile coverage.
+- [x] Self-approval is blocked.
+- [x] Decision reason is required.
+- [x] Stale approval is blocked.
+- [x] Branch Manager dashboard has desktop/mobile coverage.
+
+Implementation notes:
+
+- `/academies/<academy_id>/approvals` now provides a branch-scoped approval queue for reschedule requests, attendance corrections, and lesson summary corrections.
+- Schedule detail now exposes reschedule requests, request history, and a direct link to daily operations.
+- Approval decisions route through existing `RescheduleService`, `AttendanceService`, and `LessonSummaryService` methods so stale checks, permission checks, audit data, and status transitions stay centralized.
+- Reschedule self-approval is explicitly blocked in `RescheduleService`.
+- Decision forms require a reason and record approve/reject outcomes in the request history.
+- `backend/tests/test_web_security.py` covers Branch Manager queue visibility and approve/reject decisions across reschedule, attendance, and lesson summary requests.
+- `npm run ui:quality` includes desktop/mobile Branch Manager dashboard coverage.
 
 ## Phase CW12 - Notification Center
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -538,13 +558,23 @@ Deliverables:
 
 Acceptance criteria:
 
-- Notifications are role-scoped.
-- Parent notifications are not spammy.
-- Teacher/admin notifications stay operational.
+- [x] Notifications are role-scoped.
+- [x] Parent notifications are not spammy.
+- [x] Teacher/admin notifications stay operational.
+
+Implementation notes:
+
+- `/notifications` now provides a web notification inbox for the authenticated user, backed by the existing `NotificationService`.
+- The topbar shows a Notification Center entry with unread count when the current user has unread notifications.
+- Notification Center supports all/unread filtering, priority summary, empty state, payload context, and per-item mark-read.
+- Mark-read uses CSRF protection and recipient-scoped lookup, so users cannot mark another recipient's notification.
+- Existing event emitters continue to deduplicate notifications through `dedup_key`.
+- `backend/tests/test_web_security.py` covers web inbox listing, unread badge, recipient-visible payload, and mark-read behavior.
+- `npm run ui:quality` captures desktop/mobile notification center screenshots and overflow checks.
 
 ## Phase CW13 - Reporting And Oversight
 
-Status: future
+Status: completed baseline
 
 Objective:
 
@@ -574,9 +604,24 @@ Deliverables:
 
 Acceptance criteria:
 
-- Reports are scoped by academy/branch permission.
-- Director sees academy-wide rollup.
-- Manager sees assigned branch only.
+- [x] Reports are scoped by academy/branch permission.
+- [x] Director sees academy-wide rollup.
+- [x] Manager sees assigned branch only.
+
+Implementation notes:
+
+- `/academies/<academy_id>/reports` now provides a Branch Manager report view for visible/reportable branches.
+- Academy Director users now see academy-wide branch rollup totals and a branch comparison table from the same report page.
+- The report uses `AnalyticsService.branch_kpi`, keeping Flask UI and analytics API metrics aligned.
+- `AnalyticsService.academy_overview` aggregates attendance consistency, schedule stability, teacher workload, and parent engagement across academy branches.
+- Branch report covers attendance consistency, schedule stability, teacher workload, and parent engagement.
+- Schedule stability now includes cancelled/rescheduled sessions and a stability rate in branch KPI.
+- Parent engagement now counts notifications sent to active parent links in the branch instead of relying on notification payload branch metadata.
+- Dashboard headers expose an `Open reports` link when the active role has a reportable branch scope.
+- `backend/tests/test_web_security.py` covers Branch Manager report access using schedule, finalized attendance, published summary, and parent notification data.
+- `backend/tests/test_web_security.py` covers Academy Director report access, academy-wide rollup, branch comparison, and parent engagement counts across branches.
+- `backend/tests/test_analytics_api.py` continues to validate analytics API behavior.
+- `npm run ui:quality` captures desktop/mobile Branch Manager and Academy Director report screenshots.
 
 ## Phase CW14 - SaaS Billing, Tier, Subscription, Addon
 
@@ -615,17 +660,17 @@ Acceptance criteria:
 
 ## Recommended Immediate Sprint
 
-Continue with **Phase CW10 - Daily Operations**.
+Continue with **Phase CW14 - SaaS Billing, Tier, Subscription, Addon**.
 
-Tenant, academy, branch, internal roles, teachers, rooms, classes, students, parent-child links, and the first schedule now have a connected Flask UI path. The next step is making that scheduled session operational for attendance, lesson summaries, materials, homework, and parent/student visibility.
+Tenant, academy, branch, internal roles, teachers, rooms, classes, students, parent-child links, first schedule, daily operations, approval workflow, notification center, and scoped reporting now have a connected Flask UI path. The next step is making subscription state visible without disturbing the operational workflow.
 
 Initial implementation target:
 
-- Teacher today timeline opens scheduled sessions.
-- Attendance UI for a created class session.
-- Lesson summary draft/publish flow.
-- Parent/student dashboards show finalized attendance and published summaries.
-- Branch Admin sees daily operational completion state.
+- Trial/grace/suspended subscription state on academy surfaces.
+- Plan detail and addon placeholders from existing subscription tier rules.
+- Backend-validated feature gating surfaced in the UI.
+- Billing access scoped to Platform Owner and Academy Director.
+- Platform Owner operational overview remains deferred until billing state is readable.
 
 ## Definition Of Connected Done
 
@@ -636,5 +681,9 @@ The connected SaaS workflow is considered usable when:
 - Internal roles can be assigned.
 - Teacher, student, and parent records can be created and linked.
 - First class and schedule can be created.
+- Daily attendance and lesson summary can be completed from the schedule session.
+- Operational corrections and reschedule requests can be approved or rejected with a reason.
+- Role-scoped notifications can be viewed and marked read.
+- Branch Manager and Academy Director can view scoped operational reports.
 - Teacher, parent, student, admin, manager, director, and owner dashboards all show data created through the same flow.
 - Billing/subscription UI is added only after the operational chain is alive.

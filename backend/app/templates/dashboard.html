@@ -31,6 +31,9 @@
           <strong>{{ user.full_name }}</strong>
           <span>{{ user.email }}</span>
           <small>{{ context.academy_name }} / {{ context.branch_name }}</small>
+          {% if context.report_href %}
+            <a class="state-link" href="{{ context.report_href }}">Open reports</a>
+          {% endif %}
         </div>
       </div>
 
@@ -106,6 +109,33 @@
                   <p>{{ item.body }}</p>
                 </div>
                 <strong>Visible</strong>
+              </article>
+            {% endfor %}
+          </div>
+        </section>
+      {% endif %}
+
+      {% if context.operational_items %}
+        <section class="work-panel schedule-visibility-panel">
+          <div class="section-heading">
+            <p class="eyebrow">Daily operations</p>
+            <h2>Attendance and summary state</h2>
+          </div>
+          <div class="workflow-list">
+            {% for item in context.operational_items %}
+              <article class="workflow-item">
+                <span>{{ item.when }}</span>
+                <div>
+                  <h3>
+                    {% if item.href %}
+                      <a class="state-link" href="{{ item.href }}">{{ item.title }}</a>
+                    {% else %}
+                      {{ item.title }}
+                    {% endif %}
+                  </h3>
+                  <p>{{ item.body }}</p>
+                </div>
+                <strong>{{ item.status }}</strong>
               </article>
             {% endfor %}
           </div>
